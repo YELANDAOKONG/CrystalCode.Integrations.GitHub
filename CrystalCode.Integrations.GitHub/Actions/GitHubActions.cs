@@ -30,6 +30,21 @@ public static class GitHubActions
     public static GitHubActionsEnvironment Read(IReadOnlyDictionary<string, string?> environment)
     {
         ArgumentNullException.ThrowIfNull(environment);
+        var api = ReadApi(environment);
+        return new GitHubActionsEnvironment(
+            api.Api,
+            api.Token,
+            api.Repository,
+            Required(environment, EventNameVariable),
+            Required(environment, EventPathVariable));
+    }
+
+    /// <summary>
+    /// Reads the API credential and repository. Event variables are not required.
+    /// </summary>
+    public static GitHubApiContext ReadApi(IReadOnlyDictionary<string, string?> environment)
+    {
+        ArgumentNullException.ThrowIfNull(environment);
         var token = Required(environment, TokenVariable);
         if (token.Any(char.IsWhiteSpace))
         {
@@ -42,12 +57,10 @@ public static class GitHubActions
             throw new GitHubException($"{ApiUrlVariable} is not a valid URL.");
         }
 
-        return new GitHubActionsEnvironment(
+        return new GitHubApiContext(
             api,
             token,
-            GitHubRepository.Parse(Required(environment, RepositoryVariable)),
-            Required(environment, EventNameVariable),
-            Required(environment, EventPathVariable));
+            GitHubRepository.Parse(Required(environment, RepositoryVariable)));
     }
 
     private static string Required(IReadOnlyDictionary<string, string?> environment, string name)

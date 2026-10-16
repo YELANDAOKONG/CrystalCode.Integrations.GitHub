@@ -18,10 +18,17 @@
 
     <ItemGroup>
         <Using Include="Xunit" />
+        <Using Include="CrystalCode.Integrations.GitHub.Command" />
     </ItemGroup>
 
     <ItemGroup>
         <ProjectReference Include="..\CrystalCode.Integrations.GitHub\CrystalCode.Integrations.GitHub.csproj" />
+        <ProjectReference Include="..\CrystalCode.Integrations.GitHub.Command\CrystalCode.Integrations.GitHub.Command.csproj" />
+        <ProjectReference Include="..\CrystalCode.Integrations.GitHub.Tools\CrystalCode.Integrations.GitHub.Tools.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <Content Include="..\CrystalCode.Integrations.GitHub.Tools\tools.json" Link="tools.json" CopyToOutputDirectory="PreserveNewest" />
     </ItemGroup>
 
 </Project>

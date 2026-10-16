@@ -45,6 +45,18 @@ public sealed class GitHubActionsTests
         Assert.Equal("GITHUB_TOKEN is missing.", exception.Message);
     }
 
+    [Fact]
+    public void ReadApi_WithoutEvent_UsesTheRepository()
+    {
+        var read = GitHubActions.ReadApi(Environment(
+            ("GITHUB_TOKEN", TestClients.Token),
+            ("GITHUB_REPOSITORY", "acme/demo")));
+
+        Assert.Equal("acme/demo", read.Repository.ToString());
+        Assert.Equal(GitHubLimits.DefaultApi, read.Api.ToString().TrimEnd('/'));
+        Assert.DoesNotContain(TestClients.Token, read.ToString(), StringComparison.Ordinal);
+    }
+
     private static Dictionary<string, string?> Environment(params (string Name, string Value)[] pairs)
     {
         var environment = new Dictionary<string, string?>(StringComparer.Ordinal);

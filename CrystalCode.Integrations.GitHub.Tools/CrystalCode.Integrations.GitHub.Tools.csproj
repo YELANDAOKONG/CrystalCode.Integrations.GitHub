@@ -1,0 +1,44 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <CrystalRoot Condition="'$(CrystalRoot)' == ''">$(MSBuildThisFileDirectory)../../Crystal</CrystalRoot>
+        <DisableTransitiveProjectReferences>true</DisableTransitiveProjectReferences>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="CrystalCode.Integrations.GitHub.Tests" />
+        <Using Include="CrystalCode.Integrations.GitHub" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="$(CrystalRoot)/Crystal.Tools/Crystal.Tools.csproj">
+            <Private>false</Private>
+        </ProjectReference>
+        <ProjectReference Include="$(CrystalRoot)/Crystal/Crystal.csproj">
+            <Private>false</Private>
+        </ProjectReference>
+        <ProjectReference Include="..\CrystalCode.Integrations.GitHub\CrystalCode.Integrations.GitHub.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <Content Include="tools.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    </ItemGroup>
+
+    <Target Name="RemoveHostContracts" AfterTargets="Publish">
+        <ItemGroup>
+            <_HostContract Include="$(PublishDir)Crystal.dll" />
+            <_HostContract Include="$(PublishDir)Crystal.pdb" />
+            <_HostContract Include="$(PublishDir)Crystal.xml" />
+            <_HostContract Include="$(PublishDir)Crystal.Tools.dll" />
+            <_HostContract Include="$(PublishDir)Crystal.Tools.pdb" />
+            <_HostContract Include="$(PublishDir)Crystal.Tools.xml" />
+            <_HostContract Include="$(PublishDir)Newtonsoft.Json.dll" />
+            <_HostContract Include="$(PublishDir)Newtonsoft.Json.Bson.dll" />
+        </ItemGroup>
+        <Delete Files="@(_HostContract)" />
+    </Target>
+
+</Project>

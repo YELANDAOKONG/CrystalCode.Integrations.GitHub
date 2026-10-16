@@ -1,0 +1,6 @@
+{
+  "name": "GitHub Review Guard",
+  "description": "Protects GitHub automation against prompt injection, credential exposure, and unauthorized exfiltration.",
+  "enabled": true,
+  "order": 1
+}

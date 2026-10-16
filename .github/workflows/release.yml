@@ -44,20 +44,26 @@ jobs:
         with:
           ref: ${{ github.event.release.tag_name || inputs.tag || github.sha }}
 
+      - name: Checkout Crystal
+        uses: actions/checkout@v4
+        with:
+          repository: YELANDAOKONG/Crystal
+          path: external/Crystal
+
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: "10.0.x"
 
       - name: Restore
-        run: dotnet restore CrystalCode.Integrations.GitHub.sln
+        run: dotnet restore CrystalCode.Integrations.GitHub.sln -p:CrystalRoot=${{ github.workspace }}/external/Crystal
 
       - name: Test
-        run: dotnet test CrystalCode.Integrations.GitHub.sln --configuration Release --no-restore
+        run: dotnet test CrystalCode.Integrations.GitHub.sln --configuration Release --no-restore -p:CrystalRoot=${{ github.workspace }}/external/Crystal
 
       - name: Publish
         run: >
-          dotnet publish CrystalCode.Integrations.GitHub/CrystalCode.Integrations.GitHub.csproj
+          dotnet publish CrystalCode.Integrations.GitHub.Command/CrystalCode.Integrations.GitHub.Command.csproj
           --configuration Release
           --runtime ${{ matrix.rid }}
           --self-contained true

@@ -1,0 +1,11 @@
+{
+  "runner": "dotnet",
+  "assembly": "CrystalCode.Integrations.GitHub.Tools.dll",
+  "tools": {
+    "github_request": { "catalogs": ["work"] },
+    "github_issue_comment": { "catalogs": ["work"] },
+    "github_issue_labels": { "catalogs": ["work"] },
+    "github_pull_review": { "catalogs": ["work"] },
+    "github_pull_diff": { "pathArguments": ["output"] }
+  }
+}

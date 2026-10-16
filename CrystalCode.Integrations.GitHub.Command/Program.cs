@@ -1,6 +1,8 @@
 using System.Collections;
 
-namespace CrystalCode.Integrations.GitHub;
+using CrystalCode.Integrations.GitHub;
+
+namespace CrystalCode.Integrations.GitHub.Command;
 
 public static class Program
 {

@@ -34,13 +34,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Checkout Crystal
+        uses: actions/checkout@v4
+        with:
+          repository: YELANDAOKONG/Crystal
+          path: external/Crystal
+
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: "10.0.x"
 
       - name: Restore
-        run: dotnet restore CrystalCode.Integrations.GitHub.sln
+        run: dotnet restore CrystalCode.Integrations.GitHub.sln -p:CrystalRoot=${{ github.workspace }}/external/Crystal
 
       - name: Test
-        run: dotnet test CrystalCode.Integrations.GitHub.sln --configuration Release --no-restore
+        run: dotnet test CrystalCode.Integrations.GitHub.sln --configuration Release --no-restore -p:CrystalRoot=${{ github.workspace }}/external/Crystal

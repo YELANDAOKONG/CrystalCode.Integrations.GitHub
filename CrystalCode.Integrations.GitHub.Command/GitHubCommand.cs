@@ -1,10 +1,11 @@
 using System.Globalization;
 
+using CrystalCode.Integrations.GitHub;
 using CrystalCode.Integrations.GitHub.Actions;
 using CrystalCode.Integrations.GitHub.Issues;
 using CrystalCode.Integrations.GitHub.PullRequests;
 
-namespace CrystalCode.Integrations.GitHub;
+namespace CrystalCode.Integrations.GitHub.Command;
 
 /// <summary>
 /// Command line for GitHub reads and writes. Endpoints without a subcommand
@@ -14,15 +15,15 @@ public static class GitHubCommand
 {
     public const string Usage =
         """
-        CrystalCode.Integrations.GitHub request <METHOD> <PATH> [--body-file <PATH>] [--accept <MEDIA>]
-        CrystalCode.Integrations.GitHub issue get <NUMBER>
-        CrystalCode.Integrations.GitHub issue comments <NUMBER>
-        CrystalCode.Integrations.GitHub issue comment <NUMBER> --body-file <PATH>
-        CrystalCode.Integrations.GitHub issue labels <NUMBER> --add <LABELS> | --set <LABELS>
-        CrystalCode.Integrations.GitHub pull get <NUMBER>
-        CrystalCode.Integrations.GitHub pull diff <NUMBER> [--output <PATH>]
-        CrystalCode.Integrations.GitHub pull review <NUMBER> --event <comment|approve|request-changes> --body-file <PATH> [--commit <SHA>]
-        CrystalCode.Integrations.GitHub event show
+        CrystalCode.Integrations.GitHub.Command request (<METHOD> <PATH> | --method <METHOD> --path <PATH>) [--body-file <PATH> | --body <JSON>] [--accept <MEDIA>]
+        CrystalCode.Integrations.GitHub.Command issue get (<NUMBER> | --number <NUMBER>)
+        CrystalCode.Integrations.GitHub.Command issue comments (<NUMBER> | --number <NUMBER>)
+        CrystalCode.Integrations.GitHub.Command issue comment (<NUMBER> | --number <NUMBER>) (--body-file <PATH> | --body <TEXT>)
+        CrystalCode.Integrations.GitHub.Command issue labels (<NUMBER> | --number <NUMBER>) --add <LABELS> | --set <LABELS>
+        CrystalCode.Integrations.GitHub.Command pull get (<NUMBER> | --number <NUMBER>)
+        CrystalCode.Integrations.GitHub.Command pull diff (<NUMBER> | --number <NUMBER>) [--output <PATH>]
+        CrystalCode.Integrations.GitHub.Command pull review (<NUMBER> | --number <NUMBER>) --event <comment|approve|request-changes> (--body-file <PATH> | --body <TEXT>) [--commit <SHA>]
+        CrystalCode.Integrations.GitHub.Command event show
         """;
 
     public static async Task<int> RunAsync(
@@ -46,22 +47,26 @@ public static class GitHubCommand
 
         try
         {
-            var context = GitHubActions.Read(environment);
+            if (args[0] == "event")
+            {
+                var context = GitHubActions.Read(environment);
+                await EventAsync(context, args, output, cancellationToken).ConfigureAwait(false);
+                return 0;
+            }
+
+            var session = GitHubActions.ReadApi(environment);
             using var http = httpFactory();
-            var client = context.CreateClient(http);
+            var client = session.CreateClient(http);
             switch (args[0])
             {
                 case "request":
                     await RequestAsync(client, args, output, cancellationToken).ConfigureAwait(false);
                     break;
                 case "issue":
-                    await IssueAsync(client, context.Repository, args, output, cancellationToken).ConfigureAwait(false);
+                    await IssueAsync(client, session.Repository, args, output, cancellationToken).ConfigureAwait(false);
                     break;
                 case "pull":
-                    await PullAsync(client, context.Repository, args, output, cancellationToken).ConfigureAwait(false);
-                    break;
-                case "event":
-                    await EventAsync(context, args, output, cancellationToken).ConfigureAwait(false);
+                    await PullAsync(client, session.Repository, args, output, cancellationToken).ConfigureAwait(false);
                     break;
                 default:
                     await error.WriteLineAsync(Usage).ConfigureAwait(false);
@@ -84,23 +89,35 @@ public static class GitHubCommand
         CancellationToken cancellationToken)
     {
         var parsed = Parse(args, 1);
-        RequireOnly(parsed.Options, "--body-file", "--accept");
+        RequireOnly(parsed.Options, "--body-file", "--body", "--accept", "--method", "--path");
+        var (method, path) = RequestTarget(parsed);
+        var body = await OptionalBodyAsync(parsed.Options, cancellationToken).ConfigureAwait(false);
+        var response = await client.SendAsync(
+            new GitHubRequest(method, path, body, Option(parsed.Options, "--accept")),
+            cancellationToken).ConfigureAwait(false);
+        await WriteBodyAsync(output, response.Body).ConfigureAwait(false);
+    }
+
+    private static (HttpMethod Method, string Path) RequestTarget(ParsedArgs parsed)
+    {
+        var method = Option(parsed.Options, "--method");
+        var path = Option(parsed.Options, "--path");
+        if (method is not null || path is not null)
+        {
+            if (parsed.Positionals.Count != 0 || method is null || path is null)
+            {
+                throw new GitHubException("Use either method and path arguments or --method and --path.");
+            }
+
+            return (Method(method), path);
+        }
+
         if (parsed.Positionals.Count != 2)
         {
             throw new GitHubException(Usage);
         }
 
-        string? body = null;
-        if (Option(parsed.Options, "--body-file") is string bodyFile)
-        {
-            body = await ReadFileAsync(bodyFile, GitHubLimits.MaximumRequestBytes, cancellationToken)
-                .ConfigureAwait(false);
-        }
-
-        var response = await client.SendAsync(
-            new GitHubRequest(Method(parsed.Positionals[0]), parsed.Positionals[1], body, Option(parsed.Options, "--accept")),
-            cancellationToken).ConfigureAwait(false);
-        await WriteBodyAsync(output, response.Body).ConfigureAwait(false);
+        return (Method(parsed.Positionals[0]), parsed.Positionals[1]);
     }
 
     private static async Task IssueAsync(
@@ -119,36 +136,33 @@ public static class GitHubCommand
         switch (args[1])
         {
             case "get":
-                RequireOnly(parsed.Options);
+                RequireOnly(parsed.Options, "--number");
                 await WriteAsync(
                     output,
-                    await GitHubIssues.GetAsync(client, repository, OneNumber(parsed.Positionals), cancellationToken)
+                    await GitHubIssues.GetAsync(client, repository, Number(parsed), cancellationToken)
                         .ConfigureAwait(false)).ConfigureAwait(false);
                 return;
             case "comments":
-                RequireOnly(parsed.Options);
+                RequireOnly(parsed.Options, "--number");
                 await WriteAsync(
                     output,
-                    await GitHubIssues.ListCommentsAsync(client, repository, OneNumber(parsed.Positionals), cancellationToken)
+                    await GitHubIssues.ListCommentsAsync(client, repository, Number(parsed), cancellationToken)
                         .ConfigureAwait(false)).ConfigureAwait(false);
                 return;
             case "comment":
-                RequireOnly(parsed.Options, "--body-file");
-                var comment = await ReadFileAsync(
-                    RequiredOption(parsed.Options, "--body-file"),
-                    GitHubLimits.MaximumRequestBytes,
-                    cancellationToken).ConfigureAwait(false);
+                RequireOnly(parsed.Options, "--number", "--body-file", "--body");
+                var comment = await RequiredBodyAsync(parsed.Options, cancellationToken).ConfigureAwait(false);
                 await WriteAsync(
                     output,
                     await GitHubIssues.CreateCommentAsync(
                         client,
                         repository,
-                        OneNumber(parsed.Positionals),
+                        Number(parsed),
                         comment,
                         cancellationToken).ConfigureAwait(false)).ConfigureAwait(false);
                 return;
             case "labels":
-                RequireOnly(parsed.Options, "--add", "--set");
+                RequireOnly(parsed.Options, "--number", "--add", "--set");
                 await LabelsAsync(client, repository, parsed, output, cancellationToken).ConfigureAwait(false);
                 return;
             default:
@@ -170,7 +184,7 @@ public static class GitHubCommand
             throw new GitHubException("Use either --add or --set.");
         }
 
-        var number = OneNumber(parsed.Positionals);
+        var number = Number(parsed);
         var response = add is not null
             ? await GitHubIssues.AddLabelsAsync(client, repository, number, Labels(add, allowEmpty: false), cancellationToken)
                 .ConfigureAwait(false)
@@ -195,18 +209,18 @@ public static class GitHubCommand
         switch (args[1])
         {
             case "get":
-                RequireOnly(parsed.Options);
+                RequireOnly(parsed.Options, "--number");
                 await WriteAsync(
                     output,
-                    await GitHubPullRequests.GetAsync(client, repository, OneNumber(parsed.Positionals), cancellationToken)
+                    await GitHubPullRequests.GetAsync(client, repository, Number(parsed), cancellationToken)
                         .ConfigureAwait(false)).ConfigureAwait(false);
                 return;
             case "diff":
-                RequireOnly(parsed.Options, "--output");
+                RequireOnly(parsed.Options, "--number", "--output");
                 var diff = await GitHubPullRequests.GetDiffAsync(
                     client,
                     repository,
-                    OneNumber(parsed.Positionals),
+                    Number(parsed),
                     cancellationToken).ConfigureAwait(false);
                 if (Option(parsed.Options, "--output") is string outputPath)
                 {
@@ -217,17 +231,14 @@ public static class GitHubCommand
                 await WriteBodyAsync(output, diff.Body).ConfigureAwait(false);
                 return;
             case "review":
-                RequireOnly(parsed.Options, "--event", "--body-file", "--commit");
-                var review = await ReadFileAsync(
-                    RequiredOption(parsed.Options, "--body-file"),
-                    GitHubLimits.MaximumRequestBytes,
-                    cancellationToken).ConfigureAwait(false);
+                RequireOnly(parsed.Options, "--number", "--event", "--body-file", "--body", "--commit");
+                var review = await RequiredBodyAsync(parsed.Options, cancellationToken).ConfigureAwait(false);
                 await WriteAsync(
                     output,
                     await GitHubPullRequests.CreateReviewAsync(
                         client,
                         repository,
-                        OneNumber(parsed.Positionals),
+                        Number(parsed),
                         review,
                         ReviewEvent(RequiredOption(parsed.Options, "--event")),
                         Option(parsed.Options, "--commit"),
@@ -309,6 +320,64 @@ public static class GitHubCommand
         }
 
         return number;
+    }
+
+    private static int Number(ParsedArgs parsed)
+    {
+        var flagged = Option(parsed.Options, "--number");
+        if (flagged is not null)
+        {
+            if (parsed.Positionals.Count != 0)
+            {
+                throw new GitHubException("Use either a number argument or --number.");
+            }
+
+            if (!int.TryParse(flagged, NumberStyles.None, CultureInfo.InvariantCulture, out var number))
+            {
+                throw new GitHubException("Issue and pull request numbers start at 1.");
+            }
+
+            return number;
+        }
+
+        return OneNumber(parsed.Positionals);
+    }
+
+    private static async Task<string> RequiredBodyAsync(
+        IReadOnlyDictionary<string, string> options,
+        CancellationToken cancellationToken)
+    {
+        var body = await OptionalBodyAsync(options, cancellationToken).ConfigureAwait(false);
+        if (body is null)
+        {
+            throw new GitHubException("Missing --body or --body-file.");
+        }
+
+        return body;
+    }
+
+    private static async Task<string?> OptionalBodyAsync(
+        IReadOnlyDictionary<string, string> options,
+        CancellationToken cancellationToken)
+    {
+        var inline = Option(options, "--body");
+        var file = Option(options, "--body-file");
+        if (inline is not null && file is not null)
+        {
+            throw new GitHubException("Use either --body or --body-file.");
+        }
+
+        if (inline is not null)
+        {
+            return inline;
+        }
+
+        if (file is null)
+        {
+            return null;
+        }
+
+        return await ReadFileAsync(file, GitHubLimits.MaximumRequestBytes, cancellationToken).ConfigureAwait(false);
     }
 
     private static IReadOnlyList<string> Labels(string text, bool allowEmpty)
