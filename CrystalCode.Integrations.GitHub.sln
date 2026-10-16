@@ -8,6 +8,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CrystalCode.Integrations.Gi
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CrystalCode.Integrations.GitHub.Tools", "CrystalCode.Integrations.GitHub.Tools\CrystalCode.Integrations.GitHub.Tools.csproj", "{3E9F6C21-8A47-4D5B-B0E2-6F1A9C3D7E58}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CrystalCode.Integrations.GitHub.Bootstrap", "CrystalCode.Integrations.GitHub.Bootstrap\CrystalCode.Integrations.GitHub.Bootstrap.csproj", "{E28AF945-1139-4890-912C-83E70899A115}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -18,6 +20,18 @@ Global
 		Release|x86 = Release|x86
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{E28AF945-1139-4890-912C-83E70899A115}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E28AF945-1139-4890-912C-83E70899A115}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E28AF945-1139-4890-912C-83E70899A115}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{E28AF945-1139-4890-912C-83E70899A115}.Debug|x64.Build.0 = Debug|Any CPU
+		{E28AF945-1139-4890-912C-83E70899A115}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{E28AF945-1139-4890-912C-83E70899A115}.Debug|x86.Build.0 = Debug|Any CPU
+		{E28AF945-1139-4890-912C-83E70899A115}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E28AF945-1139-4890-912C-83E70899A115}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E28AF945-1139-4890-912C-83E70899A115}.Release|x64.ActiveCfg = Release|Any CPU
+		{E28AF945-1139-4890-912C-83E70899A115}.Release|x64.Build.0 = Release|Any CPU
+		{E28AF945-1139-4890-912C-83E70899A115}.Release|x86.ActiveCfg = Release|Any CPU
+		{E28AF945-1139-4890-912C-83E70899A115}.Release|x86.Build.0 = Release|Any CPU
 		{BE21C302-D76A-4137-BE46-CC112D1A3575}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{BE21C302-D76A-4137-BE46-CC112D1A3575}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{BE21C302-D76A-4137-BE46-CC112D1A3575}.Debug|x64.ActiveCfg = Debug|Any CPU

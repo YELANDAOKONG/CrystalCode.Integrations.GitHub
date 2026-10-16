@@ -23,6 +23,7 @@
 
     <ItemGroup>
         <ProjectReference Include="..\CrystalCode.Integrations.GitHub\CrystalCode.Integrations.GitHub.csproj" />
+        <ProjectReference Include="..\CrystalCode.Integrations.GitHub.Bootstrap\CrystalCode.Integrations.GitHub.Bootstrap.csproj" />
         <ProjectReference Include="..\CrystalCode.Integrations.GitHub.Command\CrystalCode.Integrations.GitHub.Command.csproj" />
         <ProjectReference Include="..\CrystalCode.Integrations.GitHub.Tools\CrystalCode.Integrations.GitHub.Tools.csproj" />
     </ItemGroup>
