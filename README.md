@@ -1,5 +1,8 @@
 # Crystal Code GitHub
 
+[![Tests](https://github.com/YELANDAOKONG/CrystalCode.Integrations.GitHub/actions/workflows/test.yml/badge.svg?branch=master)](https://github.com/YELANDAOKONG/CrystalCode.Integrations.GitHub/actions/workflows/test.yml)
+[![Release](https://github.com/YELANDAOKONG/CrystalCode.Integrations.GitHub/actions/workflows/release.yml/badge.svg)](https://github.com/YELANDAOKONG/CrystalCode.Integrations.GitHub/actions/workflows/release.yml)
+
 **A Crystal Code integration that reads and writes GitHub.**
 
 This command talks to the GitHub REST API for a workflow the caller supplies. It does not decide what a review, issue, or label means. A caller that needs an endpoint this command does not name uses `request`.
