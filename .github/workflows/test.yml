@@ -50,3 +50,9 @@ jobs:
 
       - name: Test
         run: dotnet test CrystalCode.Integrations.GitHub.sln --configuration Release --no-restore -p:CrystalRoot=${{ github.workspace }}/external/Crystal
+
+      - name: Test Linux Action bootstrap without network or model calls
+        if: matrix.artifact == 'linux-x64'
+        run: |
+          bash -n scripts/bootstrap.sh
+          python3 scripts/test_bootstrap.py

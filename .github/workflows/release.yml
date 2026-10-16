@@ -85,8 +85,9 @@ jobs:
         if: github.event_name != 'push'
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
         run: >
-          gh release upload ${{ github.event.release.tag_name || inputs.tag }}
+          gh release upload "$RELEASE_TAG"
           CrystalCode.Integrations.GitHub-${{ matrix.artifact }}.zip
           --clobber
 
@@ -96,4 +97,45 @@ jobs:
         with:
           name: CrystalCode.Integrations.GitHub-${{ matrix.artifact }}
           path: publish
+          if-no-files-found: error
+
+  action-package:
+    name: Linux x64 Action package
+    needs: publish
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name || inputs.tag || github.sha }}
+      - uses: actions/checkout@v4
+        with:
+          repository: YELANDAOKONG/Crystal
+          path: external/Crystal
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Publish bootstrap and tools
+        run: |
+          dotnet publish CrystalCode.Integrations.GitHub.Bootstrap/CrystalCode.Integrations.GitHub.Bootstrap.csproj --configuration Release --runtime linux-x64 --self-contained true -p:PublishSingleFile=true --output action-package/bootstrap
+          dotnet publish CrystalCode.Integrations.GitHub.Tools/CrystalCode.Integrations.GitHub.Tools.csproj --configuration Release -p:CrystalRoot="$GITHUB_WORKSPACE/external/Crystal" --output action-package/tools/GitHub
+          cp -R prompt-attachments action-package/prompt-attachments
+      - name: Smoke-test published package without network or model calls
+        env:
+          CRYSTAL_TEST_BOOTSTRAP: action-package/bootstrap
+          CRYSTAL_TEST_TOOLS: action-package/tools/GitHub
+        run: python3 scripts/test_bootstrap.py
+      - name: Archive Action package
+        working-directory: action-package
+        run: zip -q -r ../CrystalCode.Integrations.GitHub.Action-linux-x64.zip .
+      - name: Upload release package
+        if: github.event_name != 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
+        run: gh release upload "$RELEASE_TAG" CrystalCode.Integrations.GitHub.Action-linux-x64.zip --clobber
+      - name: Upload build package
+        uses: actions/upload-artifact@v4
+        with:
+          name: CrystalCode.Integrations.GitHub.Action-linux-x64
+          path: CrystalCode.Integrations.GitHub.Action-linux-x64.zip
           if-no-files-found: error
