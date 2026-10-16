@@ -3,9 +3,13 @@
 [![Tests](https://github.com/YELANDAOKONG/CrystalCode.Integrations.GitHub/actions/workflows/test.yml/badge.svg?branch=master)](https://github.com/YELANDAOKONG/CrystalCode.Integrations.GitHub/actions/workflows/test.yml)
 [![Release](https://github.com/YELANDAOKONG/CrystalCode.Integrations.GitHub/actions/workflows/release.yml/badge.svg)](https://github.com/YELANDAOKONG/CrystalCode.Integrations.GitHub/actions/workflows/release.yml)
 
-**A Crystal Code integration that reads and writes GitHub.**
+**Run Crystal Code in GitHub workflows for pull request checks, issue checks, issue label classification, and other repository tasks.**
 
-This command talks to the GitHub REST API for a workflow the caller supplies. It does not decide what a review, issue, or label means. A caller that needs an endpoint this command does not name uses `request`.
+This repository is intended to provide the complete GitHub integration, not just a REST client or command-line tool. Its scope includes a GitHub Action entry point (`action.yml`), a program that converts environment variables into Crystal Code configuration, CI bootstrap tooling to obtain and assemble Crystal Code with this repository's GitHub tools and prompt attachments, and default event-triggered workflow YAML templates.
+
+These integration components are intended scope, not a claim that they are already implemented. The current repository contains the GitHub API library, command-line program, native Crystal Code tools, prompt attachments, and this repository's own test and release workflows. Consumer-facing Action, configuration conversion, bootstrap tooling, and workflow templates still need to be implemented. See [AGENTS.md](AGENTS.md) for project intent and contributor guidance.
+
+The existing command talks to the GitHub REST API for a workflow the caller supplies. It does not itself decide what a review, issue, or label means; that behavior belongs to the Crystal Code task and prompts. A caller that needs an endpoint this command does not name uses `request`.
 
 [Command](#command) · [Library](#library) · [Build from source](#build-from-source)
 
