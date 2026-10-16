@@ -42,6 +42,48 @@ public sealed class GitHubClientTests
     }
 
     [Fact]
+    public async Task SendAsync_ErrorMessage_IncludesTheDetail()
+    {
+        var handler = new FakeHttpMessageHandler().Respond(
+            TestResponses.Status(HttpStatusCode.NotFound, "{\"message\":\"Not Found\"}"));
+        var client = TestClients.Create(handler);
+
+        var exception = await Assert.ThrowsAsync<GitHubException>(() =>
+            client.SendAsync(new GitHubRequest(HttpMethod.Get, "/rate_limit"), CancellationToken.None));
+
+        Assert.Equal("GitHub returned HTTP status 404: Not Found", exception.Message);
+    }
+
+    [Fact]
+    public async Task SendAsync_ActionsTokenInTheError_OmitsTheDetail()
+    {
+        const string token = "ghs_actionssecretvalue";
+        var handler = new FakeHttpMessageHandler().Respond(
+            TestResponses.Status(HttpStatusCode.Unauthorized, "{\"message\":\"bad " + token + "\"}"));
+        var client = new GitHubClient(new HttpClient(handler), TestClients.Api, token);
+
+        var exception = await Assert.ThrowsAsync<GitHubException>(() =>
+            client.SendAsync(new GitHubRequest(HttpMethod.Get, "/rate_limit"), CancellationToken.None));
+
+        Assert.Equal("GitHub returned HTTP status 401.", exception.Message);
+        Assert.DoesNotContain(token, exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task SendAsync_ErrorMentionsAnotherTokenPrefix_OmitsTheDetail()
+    {
+        var handler = new FakeHttpMessageHandler().Respond(
+            TestResponses.Status(HttpStatusCode.Unauthorized, "{\"message\":\"bad gho_other\"}"));
+        var client = new GitHubClient(new HttpClient(handler), TestClients.Api, "customtokenvalue");
+
+        var exception = await Assert.ThrowsAsync<GitHubException>(() =>
+            client.SendAsync(new GitHubRequest(HttpMethod.Get, "/rate_limit"), CancellationToken.None));
+
+        Assert.Equal("GitHub returned HTTP status 401.", exception.Message);
+        Assert.DoesNotContain("gho_other", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task SendAsync_JsonOverTheLimit_Fails()
     {
         var body = new string('a', GitHubLimits.MaximumResponseBytes + 8);
@@ -77,5 +119,12 @@ public sealed class GitHubClientTests
             new GitHubClient(new HttpClient(new FakeHttpMessageHandler()), new Uri("http://api.github.test"), TestClients.Token));
 
         Assert.StartsWith("GitHub API URL must use HTTPS.", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void CommentsPerPage_FitsInOneResponse()
+    {
+        Assert.InRange(GitHubLimits.CommentsPerPage, 1, 100);
+        Assert.True(GitHubLimits.CommentsPerPage * GitHubLimits.MaximumCommentJsonBytes <= GitHubLimits.MaximumResponseBytes);
     }
 }

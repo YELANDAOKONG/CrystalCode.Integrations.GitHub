@@ -67,6 +67,7 @@ public sealed class GitHubIssuesTests
         var response = await GitHubIssues.ListCommentsAsync(client, Repository, 7, CancellationToken.None);
 
         Assert.Equal(2, handler.Requests.Count);
+        Assert.Contains("per_page=" + GitHubLimits.CommentsPerPage, handler.Requests[0].Uri!.Query, StringComparison.Ordinal);
         Assert.Contains("page=2", handler.Requests[1].Uri!.Query, StringComparison.Ordinal);
         Assert.Contains("\"id\":1", response.Body, StringComparison.Ordinal);
         Assert.Contains("\"id\":2", response.Body, StringComparison.Ordinal);
@@ -74,16 +75,58 @@ public sealed class GitHubIssuesTests
     }
 
     [Fact]
-    public async Task ListCommentsAsync_NextOnAnotherHost_DoesNotFollow()
+    public async Task ListCommentsAsync_NextOnAnotherHost_FailsWithoutFollowing()
     {
         var handler = new FakeHttpMessageHandler()
             .Respond(TestResponses.Json("[{\"id\":1}]", "<https://evil.test/comments?page=2>; rel=\"next\""));
         var client = TestClients.Create(handler);
 
-        var response = await GitHubIssues.ListCommentsAsync(client, Repository, 7, CancellationToken.None);
+        var exception = await Assert.ThrowsAsync<GitHubException>(() =>
+            GitHubIssues.ListCommentsAsync(client, Repository, 7, CancellationToken.None));
 
         Assert.Single(handler.Requests);
-        Assert.True(response.Truncated);
-        Assert.Contains("\"id\":1", response.Body, StringComparison.Ordinal);
+        Assert.Equal("GitHub comment list is incomplete.", exception.Message);
+        Assert.DoesNotContain("evil.test", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ListCommentsAsync_MoreCommentsThanTheCap_FailsBeforeTheNextPage()
+    {
+        var handler = new FakeHttpMessageHandler();
+        for (var page = 1; page <= GitHubLimits.MaximumCommentPages; page++)
+        {
+            handler.Respond(TestResponses.Json(
+                $"[{{\"id\":{page}}}]",
+                $"<https://api.github.test/repos/acme/demo/issues/7/comments?page={page + 1}>; rel=\"next\""));
+        }
+
+        var client = TestClients.Create(handler);
+
+        var exception = await Assert.ThrowsAsync<GitHubException>(() =>
+            GitHubIssues.ListCommentsAsync(client, Repository, 7, CancellationToken.None));
+
+        Assert.Equal(GitHubLimits.MaximumCommentPages, handler.Requests.Count);
+        Assert.Equal($"GitHub comment list exceeded {GitHubLimits.MaximumComments} comments.", exception.Message);
+    }
+
+    [Fact]
+    public async Task ListCommentsAsync_CombinedListOverTheBudget_Fails()
+    {
+        var body = "[" + new string(' ', GitHubLimits.MaximumResponseBytes - 2) + "]";
+        var handler = new FakeHttpMessageHandler();
+        for (var page = 1; page <= 6; page++)
+        {
+            handler.Respond(TestResponses.Json(
+                body,
+                $"<https://api.github.test/repos/acme/demo/issues/7/comments?page={page + 1}>; rel=\"next\""));
+        }
+
+        var client = TestClients.Create(handler);
+
+        var exception = await Assert.ThrowsAsync<GitHubException>(() =>
+            GitHubIssues.ListCommentsAsync(client, Repository, 7, CancellationToken.None));
+
+        Assert.Equal(6, handler.Requests.Count);
+        Assert.Equal("GitHub comment list exceeded 5 MiB.", exception.Message);
     }
 }

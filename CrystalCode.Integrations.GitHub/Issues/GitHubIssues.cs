@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
@@ -26,30 +27,36 @@ public static class GitHubIssues
     {
         ArgumentNullException.ThrowIfNull(client);
         var path = GitHubPaths.Issue(repository, number) + "/comments?per_page=" + GitHubLimits.CommentsPerPage;
-        var first = await client.SendAsync(new GitHubRequest(HttpMethod.Get, path), cancellationToken).ConfigureAwait(false);
-        var pages = new List<string> { first.Body };
-        var truncated = false;
-        var followed = 1;
-        var more = Follow(client, first, ref truncated);
-        while (more is not null && followed < GitHubLimits.MaximumPages)
+        GitHubResponse? first = null;
+        var pages = new List<string>();
+        var bytes = 0;
+        for (var pageNumber = 0; pageNumber < GitHubLimits.MaximumCommentPages; pageNumber++)
         {
-            var page = await client.SendAsync(new GitHubRequest(HttpMethod.Get, more), cancellationToken).ConfigureAwait(false);
+            var page = await client.SendAsync(new GitHubRequest(HttpMethod.Get, path), cancellationToken).ConfigureAwait(false);
+            first ??= page;
             pages.Add(page.Body);
-            followed++;
-            more = Follow(client, page, ref truncated);
+            bytes += Encoding.UTF8.GetByteCount(page.Body);
+            if (bytes > GitHubLimits.MaximumCommentListBytes)
+            {
+                throw new GitHubException("GitHub comment list exceeded 5 MiB.");
+            }
+
+            if (!GitHubLinks.TryFollow(client.Api, page.Headers, out var next, out var rejected))
+            {
+                if (rejected)
+                {
+                    throw new GitHubException("GitHub comment list is incomplete.");
+                }
+
+                return pages.Count == 1
+                    ? first
+                    : new GitHubResponse(first.StatusCode, MergeArrays(pages), false, first.Headers);
+            }
+
+            path = next ?? throw new GitHubException("GitHub comment list is incomplete.");
         }
 
-        if (more is not null)
-        {
-            truncated = true;
-        }
-
-        if (pages.Count == 1)
-        {
-            return truncated ? first with { Truncated = true } : first;
-        }
-
-        return new GitHubResponse(first.StatusCode, MergeArrays(pages), truncated, first.Headers);
+        throw new GitHubException($"GitHub comment list exceeded {GitHubLimits.MaximumComments} comments.");
     }
 
     public static Task<GitHubResponse> CreateCommentAsync(
@@ -109,21 +116,6 @@ public static class GitHubIssues
             GitHubPaths.Issue(repository, number) + "/labels",
             LabelsJson(labels));
         return client.SendAsync(request, cancellationToken);
-    }
-
-    private static string? Follow(GitHubClient client, GitHubResponse response, ref bool truncated)
-    {
-        if (!GitHubLinks.TryFollow(client.Api, response.Headers, out var path, out var rejected))
-        {
-            if (rejected)
-            {
-                truncated = true;
-            }
-
-            return null;
-        }
-
-        return path;
     }
 
     private static string MergeArrays(IReadOnlyList<string> pages)

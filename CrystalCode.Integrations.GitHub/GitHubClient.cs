@@ -79,7 +79,7 @@ public sealed class GitHubClient
             var (text, truncated) = await ReadBodyAsync(response, timeout.Token).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
             {
-                var detail = truncated ? null : TryMessage(text);
+                var detail = truncated ? null : TryMessage(text, _token);
                 throw new GitHubException(
                     detail is null
                         ? $"GitHub returned HTTP status {(int)response.StatusCode}."
@@ -193,7 +193,7 @@ public sealed class GitHubClient
     private static string Decode(MemoryStream buffer) =>
         Encoding.UTF8.GetString(buffer.GetBuffer(), 0, (int)buffer.Length);
 
-    private static string? TryMessage(string body)
+    private static string? TryMessage(string body, string token)
     {
         try
         {
@@ -209,8 +209,7 @@ public sealed class GitHubClient
                 || text.Length > GitHubLimits.MaximumErrorDetailCharacters
                 || text.Contains('\n')
                 || text.Contains('\r')
-                || text.Contains("ghp_", StringComparison.Ordinal)
-                || text.Contains("github_pat_", StringComparison.Ordinal))
+                || ContainsSecret(text, token))
             {
                 return null;
             }
@@ -221,5 +220,20 @@ public sealed class GitHubClient
         {
             return null;
         }
+    }
+
+    private static bool ContainsSecret(string text, string token)
+    {
+        if (text.Contains(token, StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        return text.Contains("ghp_", StringComparison.Ordinal)
+            || text.Contains("gho_", StringComparison.Ordinal)
+            || text.Contains("ghu_", StringComparison.Ordinal)
+            || text.Contains("ghs_", StringComparison.Ordinal)
+            || text.Contains("ghr_", StringComparison.Ordinal)
+            || text.Contains("github_pat_", StringComparison.Ordinal);
     }
 }

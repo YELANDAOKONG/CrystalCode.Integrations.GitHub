@@ -30,7 +30,7 @@ CrystalCode.Integrations.GitHub pull review <NUMBER> --event <comment|approve|re
 CrystalCode.Integrations.GitHub event show
 ```
 
-`request` sends one relative API path. The path cannot leave the API host, and the command does not follow redirects. `--body-file` for `request` is the raw JSON body. For `issue comment` and `pull review` it is the plain-text body. `--set` replaces labels; an empty value clears them. `--add` adds labels. Comment pages on the same host are followed, up to five pages. A next link on another host is not followed.
+`request` sends one relative API path. The path cannot leave the API host, and the command does not follow redirects. `--body-file` for `request` is the raw JSON body. For `issue comment` and `pull review` it is the plain-text body. `--set` replaces labels; an empty value clears them. `--add` adds labels. Comment pages on the same host are followed. Each page is small enough that maximum-size comments fit in 1 MiB. The combined list stops at 500 comments or 5 MiB. If another page is still required, or the next link is on another host, the command fails instead of printing a partial list.
 
 A response that is not JSON stops at 1 MiB and says the rest was omitted. A JSON response over 1 MiB fails. Exit 0 means the call succeeded. Exit 1 means the arguments, the environment, or GitHub rejected the call.
 

@@ -6,9 +6,22 @@ internal static class GitHubLimits
     public const int MaximumResponseBytes = 1024 * 1024;
     public const int MaximumEventBytes = 1024 * 1024;
     public const int MaximumRequestBytes = 1024 * 1024;
-    public const int MaximumPages = 5;
-    public const int CommentsPerPage = 100;
     public const int MaximumBodyCharacters = 65536;
+    public const int MaximumUtf8BytesPerCharacter = 4;
+
+    // Fixed comment JSON (user, urls, reactions) around a maximum-length body.
+    // A page of those comments must still fit in one response.
+    public const int MaximumCommentOverheadBytes = 8192;
+    public const int MaximumCommentJsonBytes =
+        (MaximumBodyCharacters * MaximumUtf8BytesPerCharacter) + MaximumCommentOverheadBytes;
+    public const int CommentsPerPage = MaximumResponseBytes / MaximumCommentJsonBytes > 0
+        ? MaximumResponseBytes / MaximumCommentJsonBytes
+        : 1;
+    public const int MaximumComments = 500;
+    public const int MaximumCommentPages = (MaximumComments + CommentsPerPage - 1) / CommentsPerPage;
+
+    // Several comment responses are joined into one list. Stop at five times the per-response cap.
+    public const int MaximumCommentListBytes = MaximumResponseBytes * 5;
     public const int MaximumLabelCount = 100;
     public const int MaximumLabelCharacters = 50;
     public const int MaximumErrorDetailCharacters = 200;

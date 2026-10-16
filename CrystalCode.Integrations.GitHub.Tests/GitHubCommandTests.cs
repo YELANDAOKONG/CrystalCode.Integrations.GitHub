@@ -60,6 +60,28 @@ public sealed class GitHubCommandTests
         Assert.Equal("GITHUB_TOKEN is missing." + System.Environment.NewLine, error.ToString());
     }
 
+    [Fact]
+    public async Task RunAsync_IncompleteCommentList_FailsWithoutPrintingIt()
+    {
+        var handler = new FakeHttpMessageHandler()
+            .Respond(TestResponses.Json("[{\"id\":1}]", "<https://evil.test/comments?page=2>; rel=\"next\""));
+        var output = new StringWriter();
+        var error = new StringWriter();
+
+        var code = await GitHubCommand.RunAsync(
+            ["issue", "comments", "7"],
+            Environment(),
+            () => new HttpClient(handler),
+            output,
+            error,
+            CancellationToken.None);
+
+        Assert.Equal(1, code);
+        Assert.Equal("GitHub comment list is incomplete." + System.Environment.NewLine, error.ToString());
+        Assert.Equal(string.Empty, output.ToString());
+        Assert.Single(handler.Requests);
+    }
+
     private static Dictionary<string, string?> Environment() => new(StringComparer.Ordinal)
     {
         ["GITHUB_TOKEN"] = TestClients.Token,
