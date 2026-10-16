@@ -1,0 +1,22 @@
+name: Crystal Code PR check
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+permissions:
+  contents: read
+  pull-requests: read
+jobs:
+  check:
+    # Fork PRs do not receive model API secrets. Never switch to pull_request_target to execute PR code.
+    if: github.event.pull_request.head.repo.full_name == github.repository && !github.event.pull_request.draft
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      # No target checkout: the check reads the PR through the GitHub API.
+      # Pin the Action and both binary versions to compatible releases for production.
+      - uses: YELANDAOKONG/CrystalCode.Integrations.GitHub@master
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          CRYSTAL_API_KEY: ${{ secrets.CRYSTAL_API_KEY }}
+        with:
+          task: pull-request-check

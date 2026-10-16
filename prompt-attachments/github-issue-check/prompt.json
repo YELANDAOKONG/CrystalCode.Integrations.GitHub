@@ -1,0 +1,5 @@
+{
+  "name": "GitHub Issue Check",
+  "description": "Read-only issue analysis and requests for missing evidence.",
+  "enabled": false
+}

@@ -1,0 +1,21 @@
+name: Crystal Code issue label classification
+on:
+  issues:
+    types: [opened, edited]
+permissions:
+  contents: read
+  issues: write
+concurrency:
+  group: crystal-issue-label-${{ github.event.issue.number }}
+  cancel-in-progress: false
+jobs:
+  classify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: YELANDAOKONG/CrystalCode.Integrations.GitHub@master
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          CRYSTAL_API_KEY: ${{ secrets.CRYSTAL_API_KEY }}
+        with:
+          task: issue-label

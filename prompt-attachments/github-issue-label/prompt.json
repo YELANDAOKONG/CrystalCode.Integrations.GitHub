@@ -1,0 +1,5 @@
+{
+  "name": "GitHub Issue Label Classification",
+  "description": "Add applicable existing labels to the current issue without replacing its labels.",
+  "enabled": false
+}

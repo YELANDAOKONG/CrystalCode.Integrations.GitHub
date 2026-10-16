@@ -1,0 +1,59 @@
+name: Crystal Code GitHub
+description: Run Crystal Code for pull request checks, issue checks, label classification, and custom GitHub tasks.
+inputs:
+  task:
+    description: 'Task profile: pull-request-check, issue-check, issue-label, or custom'
+    default: pull-request-check
+  prompt:
+    description: Additional trusted workflow instructions; required for custom tasks. Do not interpolate issue or PR text here.
+  config:
+    description: Native Crystal Code config.json object. Explicit provider, model, and approval inputs override it.
+    default: '{}'
+  providers:
+    description: Native providers.json object. Use environment references for API keys.
+    default: '{}'
+  provider:
+    description: Provider name; falls back to config, then deepseek.
+  model:
+    description: Model ID; falls back to config, then deepseek-flash for DeepSeek. Other providers require a model.
+  approval:
+    description: Approval mode; falls back to config, then review.
+  duration:
+    description: Maximum duration in seconds.
+    default: '600'
+  model-calls:
+    description: Maximum model calls.
+    default: '32'
+  tool-calls:
+    description: Maximum tool calls.
+    default: '128'
+  bash-timeout:
+    description: Maximum foreground shell command duration in seconds.
+    default: '60'
+  crystal-version:
+    description: Crystal Code release tag, or latest. Pin a compatible release for reproducible runs.
+    default: latest
+  integration-version:
+    description: Integration release tag containing the Action package, or latest.
+    default: latest
+runs:
+  using: composite
+  steps:
+    - name: Run Crystal Code
+      shell: bash
+      env:
+        CRYSTAL_GITHUB_TASK: ${{ inputs.task }}
+        CRYSTAL_GITHUB_PROMPT: ${{ inputs.prompt }}
+        CRYSTAL_GITHUB_CONFIG: ${{ inputs.config }}
+        CRYSTAL_GITHUB_PROVIDERS: ${{ inputs.providers }}
+        CRYSTAL_GITHUB_PROVIDER: ${{ inputs.provider }}
+        CRYSTAL_GITHUB_MODEL: ${{ inputs.model }}
+        CRYSTAL_GITHUB_APPROVAL: ${{ inputs.approval }}
+        CRYSTAL_GITHUB_DURATION: ${{ inputs.duration }}
+        CRYSTAL_GITHUB_MODEL_CALLS: ${{ inputs.model-calls }}
+        CRYSTAL_GITHUB_TOOL_CALLS: ${{ inputs.tool-calls }}
+        CRYSTAL_GITHUB_BASH_TIMEOUT: ${{ inputs.bash-timeout }}
+        CRYSTAL_GITHUB_VERSION: ${{ inputs.crystal-version }}
+        CRYSTAL_GITHUB_INTEGRATION_VERSION: ${{ inputs.integration-version }}
+        CRYSTAL_GITHUB_ACTION_PATH: ${{ github.action_path }}
+      run: bash "$CRYSTAL_GITHUB_ACTION_PATH/scripts/bootstrap.sh"

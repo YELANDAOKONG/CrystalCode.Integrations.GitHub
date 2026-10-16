@@ -7,11 +7,56 @@
 
 This repository is intended to provide the complete GitHub integration, not just a REST client or command-line tool. Its scope includes a GitHub Action entry point (`action.yml`), a program that converts environment variables into Crystal Code configuration, CI bootstrap tooling to obtain and assemble Crystal Code with this repository's GitHub tools and prompt attachments, and default event-triggered workflow YAML templates.
 
-These integration components are intended scope, not a claim that they are already implemented. The current repository contains the GitHub API library, command-line program, native Crystal Code tools, prompt attachments, and this repository's own test and release workflows. Consumer-facing Action, configuration conversion, bootstrap tooling, and workflow templates still need to be implemented. See [AGENTS.md](AGENTS.md) for project intent and contributor guidance.
+The repository includes a Linux x64 composite Action, a configuration/bootstrap program, task prompt attachments, consumer workflow templates, and the underlying GitHub API library and tools. The release workflow builds an Action package containing the bootstrap executable, tools, and prompts. The download-based Action requires a release containing `CrystalCode.Integrations.GitHub.Action-linux-x64.zip`; older command-only releases do not work with it. See [AGENTS.md](AGENTS.md) for project intent and contributor guidance.
 
 The existing command talks to the GitHub REST API for a workflow the caller supplies. It does not itself decide what a review, issue, or label means; that behavior belongs to the Crystal Code task and prompts. A caller that needs an endpoint this command does not name uses `request`.
 
-[Command](#command) · [Library](#library) · [Build from source](#build-from-source)
+[GitHub Action](#github-action) · [Command](#command) · [Library](#library) · [Build from source](#build-from-source)
+
+## GitHub Action
+
+Copy a file from [workflow-templates](workflow-templates) into your repository's `.github/workflows/`. Set an Actions secret named `CRYSTAL_API_KEY` for the default DeepSeek provider, or pass provider-specific environment variables such as `OPENAI_API_KEY`. Supply `GITHUB_TOKEN` through `env`. There is no API key input and no generated credentials file.
+
+The Action runs on `ubuntu-latest` (Linux x64). Pin the Action ref, `crystal-version`, and `integration-version` to compatible published releases in production. Both version inputs default to `latest`. A self-hosted runner also needs `bash`, `curl`, `unzip`, and the native dependencies of the self-contained .NET binaries.
+
+```yaml
+- uses: YELANDAOKONG/CrystalCode.Integrations.GitHub@master
+  env:
+    GITHUB_TOKEN: ${{ github.token }}
+    CRYSTAL_API_KEY: ${{ secrets.CRYSTAL_API_KEY }}
+  with:
+    task: issue-check
+```
+
+| Task | Behavior | Suggested token permissions |
+| :--- | :--- | :--- |
+| `pull-request-check` (default) | Read the PR metadata and diff; print findings in the run log | `contents: read`, `pull-requests: read` |
+| `issue-check` | Read the issue and comments; print an assessment | `contents: read`, `issues: read` |
+| `issue-label` | Discover existing labels and add applicable missing labels | `contents: read`, `issues: write` |
+| `custom` | Run the required maintainer-supplied `prompt` in Work mode | Grant only the permissions needed by the task |
+
+Checks use Plan mode; label and custom tasks use Work mode. The default approval mode is `review`, which uses the session model unless `config.approvalModel` selects another. These approval rules and prompts are not an operating-system sandbox. A successful process exit means the agent turn completed, not that the reviewed code passed a deterministic quality gate. Reports are currently written to the run log, not posted as PR reviews or issue comments.
+
+The bootstrap uses a fresh temporary home and empty workspace. It loads the packaged GitHub tools and matching prompt attachments; target repository tools, skills, plugins, rule files, and prompt overrides are not loaded. Tasks obtain repository data through the GitHub API, without checking out or executing contributor code. The PR template skips fork PRs because they do not receive model API secrets. It does not use `pull_request_target`.
+
+Use native JSON for the wider configuration surface:
+
+```yaml
+with:
+  task: issue-check
+  provider: gateway
+  model: example-model
+  config: |
+    {"retry":{"maximumRetries":2},"microCompaction":{"enabled":true}}
+  providers: |
+    {"gateway":{"protocol":"openai","baseUri":"https://example.com/v1/","apiKeyEnvironment":"GATEWAY_API_KEY","models":{"example-model":{"contextWindow":200000}}}}
+```
+
+Pass `GATEWAY_API_KEY` through the step's `env`. `config` is the native `config.json` object and `providers` is the native `providers.json` object. Explicit `provider`, `model`, and `approval` inputs override the corresponding config fields. Other JSON fields are preserved and validated by Crystal Code at startup; the integration validates JSON structure and rejects inline API keys, allowing only `{env:NAME}` references. Legacy `config.providers` is rejected. Skills and plugins are always off and external tools are on for this integration.
+
+Use `prompt` for additional trusted task instructions or classification criteria. Do not interpolate issue bodies, PR descriptions, or comments into that input; fetch them through tools as data. The packaged `github-review-guard` is loaded along with the selected task attachment. `custom` loads the guard without a business attachment. Prompts use the native `prompt-attachments/` format, not config fields. Future custom prompt packages can build on that format; arbitrary prompt directory installation is not exposed by this first Action.
+
+Execution limits are separate inputs: `duration` (600 seconds), `model-calls` (32), `tool-calls` (128), and `bash-timeout` (60 seconds). They must be positive finite integers and override the corresponding saved run settings. Crystal Code's exit status is returned to GitHub Actions. No sessions or logs are uploaded as artifacts by the consumer templates.
 
 ## Command
 

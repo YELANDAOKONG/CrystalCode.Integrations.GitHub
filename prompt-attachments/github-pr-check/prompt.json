@@ -1,0 +1,5 @@
+{
+  "name": "GitHub Pull Request Check",
+  "description": "Read-only analysis of pull request changes using GitHub tools.",
+  "enabled": false
+}
