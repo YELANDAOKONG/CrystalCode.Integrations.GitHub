@@ -83,6 +83,48 @@ public sealed class RunConfigurationTests
     }
 
     [Fact]
+    public void Read_LoadsTrustedHomeAndExtensionSwitches()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "crystal-github-home-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            File.WriteAllText(Path.Combine(root, "config.json"), "{\"provider\":\"gateway\",\"model\":\"private\",\"retry\":{\"maximumRetries\":2}}");
+            File.WriteAllText(Path.Combine(root, "providers.json"), "{\"gateway\":{\"models\":{\"private\":{\"contextWindow\":200000}}}}");
+            var configuration = Read(new()
+            {
+                ["HOME_DIRECTORY"] = root,
+                ["PROMPT_SET"] = "maintainer",
+                ["PROMPT_ATTACHMENT"] = "first\nsecond",
+                ["PLUGINS"] = "on",
+                ["SKILLS"] = "on",
+                ["EXTERNAL_TOOLS"] = "off",
+                ["TASK"] = "custom",
+                ["PROMPT"] = "Use the trusted task.",
+                ["MODE"] = "plan"
+            });
+
+            var start = configuration.CreateStartInfo("CrystalCode", "home", "workspace");
+            Assert.Equal("gateway", configuration.Config["provider"]!.GetValue<string>());
+            Assert.Equal(2, configuration.Config["retry"]!["maximumRetries"]!.GetValue<int>());
+            Assert.Contains("--plugins", start.ArgumentList);
+            Assert.Equal("on", start.ArgumentList[start.ArgumentList.IndexOf("--plugins") + 1]);
+            Assert.Equal("maintainer", start.ArgumentList[start.ArgumentList.IndexOf("--prompt-set") + 1]);
+            Assert.Contains("first", start.ArgumentList);
+            Assert.Contains("second", start.ArgumentList);
+            Assert.Contains("--plan", start.ArgumentList);
+            Assert.Equal("off", start.ArgumentList[start.ArgumentList.IndexOf("--external-tools") + 1]);
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(root, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
     public void Read_CustomTaskRequiresWorkflowInstructions() =>
         Assert.Throws<InvalidOperationException>(() => Read(new() { ["TASK"] = "custom" }));
 
@@ -125,6 +167,10 @@ public sealed class RunConfigurationTests
         }
     }
 
-    private static RunConfiguration Read(Dictionary<string, string?> values) =>
-        RunConfiguration.Read(key => values.GetValueOrDefault(key.Replace("CRYSTAL_GITHUB_", "", StringComparison.Ordinal)));
+    private static RunConfiguration Read(Dictionary<string, string?> values)
+    {
+        var trustedHome = values.GetValueOrDefault("HOME_DIRECTORY");
+        return RunConfiguration.Read(
+            key => values.GetValueOrDefault(key.Replace("CRYSTAL_GITHUB_", "", StringComparison.Ordinal)), trustedHome);
+    }
 }

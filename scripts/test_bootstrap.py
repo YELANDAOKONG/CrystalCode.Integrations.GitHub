@@ -28,6 +28,11 @@ assert os.environ["CRYSTAL_HOME"] == str(home)
 assert "CRYSTAL_GITHUB_PROMPT" not in os.environ
 assert (home / "tools/GitHub/CrystalCode.Integrations.GitHub.Tools.dll").is_file()
 assert (home / "prompt-attachments/github-review-guard/plan.md").is_file()
+if os.environ.get("TEST_OVERLAY") == "1":
+    assert (home / "prompt-attachments/trusted-policy/plan.md").is_file()
+    assert (home / "skills/trusted-skill/skill.md").is_file()
+    assert (home / "plugins/trusted-plugin/plugin.json").is_file()
+    assert (home / "tools/trusted-tool/tools.json").is_file()
 assert not (home / "credentials.json").exists()
 Path(os.environ["TEST_RECORD"]).write_text(json.dumps({
     "arguments": args,
@@ -132,6 +137,41 @@ class BootstrapSmokeTests(unittest.TestCase):
         record = json.loads((self.root / "record.json").read_text())
         self.assertIn("--work", record["arguments"])
         self.assertIn("github-issue-label", record["arguments"])
+
+    def test_trusted_home_overlay_and_prompt_file(self):
+        trusted = self.root / "trusted-home"
+        (trusted / "prompt-attachments/trusted-policy").mkdir(parents=True)
+        (trusted / "skills/trusted-skill").mkdir(parents=True)
+        (trusted / "plugins/trusted-plugin").mkdir(parents=True)
+        (trusted / "tools/trusted-tool").mkdir(parents=True)
+        (trusted / "config.json").write_text('{"retry":{"maximumRetries":4}}')
+        (trusted / "providers.json").write_text('{}')
+        (trusted / "prompt-attachments/trusted-policy/plan.md").write_text("trusted policy")
+        (trusted / "skills/trusted-skill/skill.md").write_text("trusted skill")
+        (trusted / "plugins/trusted-plugin/plugin.json").write_text("{}")
+        (trusted / "tools/trusted-tool/tools.json").write_text("{}")
+        prompt_file = self.root / "trusted-prompt.md"
+        prompt_file.write_text("trusted prompt file")
+        self.environment.pop("CRYSTAL_GITHUB_PROMPT")
+        self.environment.pop("CRYSTAL_GITHUB_CONFIG")
+        self.environment.pop("CRYSTAL_GITHUB_PROVIDERS")
+        self.environment.update({
+            "TEST_OVERLAY": "1",
+            "CRYSTAL_GITHUB_HOME_DIRECTORY": str(trusted),
+            "CRYSTAL_GITHUB_PROMPT_FILE": str(prompt_file),
+            "CRYSTAL_GITHUB_PROMPT_ATTACHMENT": "trusted-policy",
+            "CRYSTAL_GITHUB_PLUGINS": "on",
+            "CRYSTAL_GITHUB_SKILLS": "on",
+            "CRYSTAL_GITHUB_MODE": "plan",
+            "CRYSTAL_GITHUB_TASK": "custom",
+        })
+        result = self.run_installer()
+        self.assertEqual(0, result.returncode, result.stderr)
+        record = json.loads((self.root / "record.json").read_text())
+        self.assertIn("trusted prompt file", record["prompt"])
+        self.assertIn("--plan", record["arguments"])
+        self.assertIn("trusted-policy", record["arguments"])
+        self.assertEqual(4, record["config"]["retry"]["maximumRetries"])
 
     def test_missing_tools_does_not_start_model(self):
         self.package_integration(include_tools=False)

@@ -6,6 +6,29 @@ inputs:
     default: pull-request-check
   prompt:
     description: Additional trusted workflow instructions; required for custom tasks. Do not interpolate issue or PR text here.
+  prompt-file:
+    description: File containing additional trusted workflow instructions, relative to the workflow workspace.
+  home-directory:
+    description: Trusted local Crystal Code home overlay containing native config and extension directories.
+  prompt-set:
+    description: Crystal Code prompt set to use from the trusted home overlay.
+    default: default
+  prompt-attachments:
+    description: Enable packaged and trusted prompt attachments. The integration guard is always loaded.
+    default: 'on'
+  prompt-attachment:
+    description: Newline-separated trusted prompt attachment names to force-load.
+  plugins:
+    description: Enable plugins from the trusted home overlay.
+    default: 'off'
+  skills:
+    description: Enable skills from the trusted home overlay.
+    default: 'off'
+  external-tools:
+    description: Enable packaged and trusted external tools.
+    default: 'on'
+  mode:
+    description: Custom task mode, plan or work. Preset task modes are fixed by their safety profile.
   config:
     description: Native Crystal Code config.json object. Explicit provider, model, and approval inputs override it.
     default: '{}'
@@ -44,6 +67,15 @@ runs:
       env:
         CRYSTAL_GITHUB_TASK: ${{ inputs.task }}
         CRYSTAL_GITHUB_PROMPT: ${{ inputs.prompt }}
+        CRYSTAL_GITHUB_PROMPT_FILE: ${{ inputs.prompt-file }}
+        CRYSTAL_GITHUB_HOME_DIRECTORY: ${{ inputs.home-directory }}
+        CRYSTAL_GITHUB_PROMPT_SET: ${{ inputs.prompt-set }}
+        CRYSTAL_GITHUB_PROMPT_ATTACHMENTS: ${{ inputs.prompt-attachments }}
+        CRYSTAL_GITHUB_PROMPT_ATTACHMENT: ${{ inputs.prompt-attachment }}
+        CRYSTAL_GITHUB_PLUGINS: ${{ inputs.plugins }}
+        CRYSTAL_GITHUB_SKILLS: ${{ inputs.skills }}
+        CRYSTAL_GITHUB_EXTERNAL_TOOLS: ${{ inputs.external-tools }}
+        CRYSTAL_GITHUB_MODE: ${{ inputs.mode }}
         CRYSTAL_GITHUB_CONFIG: ${{ inputs.config }}
         CRYSTAL_GITHUB_PROVIDERS: ${{ inputs.providers }}
         CRYSTAL_GITHUB_PROVIDER: ${{ inputs.provider }}

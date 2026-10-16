@@ -11,7 +11,7 @@ The repository includes a Linux x64 composite Action, a configuration/bootstrap 
 
 The existing command talks to the GitHub REST API for a workflow the caller supplies. It does not itself decide what a review, issue, or label means; that behavior belongs to the Crystal Code task and prompts. A caller that needs an endpoint this command does not name uses `request`.
 
-[GitHub Action](#github-action) · [First deployment](#first-deployment) · [Provider and model](#provider-and-model) · [Configuration](#configuration) · [Security](#security) · [Command](#command) · [Library](#library) · [Build from source](#build-from-source)
+[GitHub Action](#github-action) · [First deployment](#first-deployment) · [Provider and model](#provider-and-model) · [Configuration](#configuration) · [Private model configuration](#keep-model-configuration-private) · [Command](#command) · [Library](#library) · [Build from source](#build-from-source)
 
 ## GitHub Action
 
@@ -26,7 +26,7 @@ The first asset comes from [CrystalCode](https://github.com/YELANDAOKONG/Crystal
 
 The Action runs on `ubuntu-latest` (Linux x64). Pin the Action ref, `crystal-version`, and `integration-version` to compatible published releases in production. Both version inputs default to `latest`. A self-hosted runner also needs `bash`, `curl`, `unzip`, and the native dependencies of the self-contained .NET binaries.
 
-The Action does not checkout the target repository. It creates a temporary Crystal Code home and an empty workspace, reads GitHub data through the API, installs only the packaged GitHub tools and prompts, and removes the `CRYSTAL_GITHUB_*` input variables before starting Crystal Code.
+The Action does not checkout the target repository. It creates a temporary Crystal Code home and an empty workspace, reads GitHub data through the API, installs the packaged GitHub tools and prompts, optionally overlays a trusted local Crystal Code home, and removes the `CRYSTAL_GITHUB_*` input variables before starting Crystal Code.
 
 ### First deployment
 
@@ -94,7 +94,7 @@ The repository also includes ready-to-copy templates for [PR checks](workflow-te
 
 Checks use Plan mode; label and custom tasks use Work mode. The default approval mode is `review`, which uses the session model unless `config.approvalModel` selects another. These approval rules and prompts are not an operating-system sandbox. A successful process exit means the agent turn completed, not that the reviewed code passed a deterministic quality gate. Reports are currently written to the run log, not posted as PR reviews or issue comments.
 
-The PR template skips draft PRs and PRs from forks because fork workflows do not receive model API secrets. It does not use `pull_request_target`. Do not add a checkout step: the integration intentionally does not execute contributor code.
+The PR template skips draft PRs and PRs from forks because fork workflows do not receive model API secrets. It does not use `pull_request_target`. Do not add a checkout step for the target repository: the integration intentionally does not execute contributor code.
 
 ### Provider and model
 
@@ -148,7 +148,58 @@ with:
     {"gateway":{"protocol":"openai","baseUri":"https://example.com/v1/","apiKeyEnvironment":"GATEWAY_API_KEY","models":{"example-model":{"contextWindow":200000}}}}
 ```
 
-Pass `GATEWAY_API_KEY` through the step's `env`. `config` is the native `config.json` object and `providers` is the native `providers.json` object. Explicit `provider`, `model`, and `approval` inputs override the corresponding config fields. Other JSON fields are preserved and validated by Crystal Code at startup; the integration validates JSON structure and rejects inline API keys, allowing only `{env:NAME}` references. Legacy `config.providers` is rejected. Skills, plugins, workspace trust, and repository rules are disabled for this integration; the packaged external tools are enabled.
+Pass `GATEWAY_API_KEY` through the step's `env`. `config` is the native `config.json` object and `providers` is the native `providers.json` object. Explicit `provider`, `model`, and `approval` inputs override the corresponding config fields. Other JSON fields are preserved and validated by Crystal Code at startup; the integration validates JSON structure and rejects inline API keys, allowing only `{env:NAME}` references. Legacy `config.providers` is rejected. Skills, plugins, workspace trust, and repository rules are disabled by default; they can be enabled only for a trusted home overlay.
+
+### Trusted home overlay and extensions
+
+The `home-directory` input accepts a local directory already present in the workflow workspace. It is intended for a maintainer-owned checkout or an artifact pinned to a known commit, not for files from the pull request being inspected. The directory may contain these native Crystal Code entries:
+
+```text
+crystal-home/
+├── config.json
+├── providers.json
+├── prompt-sets/
+├── prompt-attachments/
+├── plugins/
+├── skills/
+└── tools/
+```
+
+Example with a separate trusted configuration repository:
+
+```yaml
+steps:
+  - uses: actions/checkout@v4
+    with:
+      repository: your-org/crystal-ci-config
+      ref: 0123456789abcdef0123456789abcdef01234567
+      path: crystal-ci-config
+      persist-credentials: false
+
+  - uses: YELANDAOKONG/CrystalCode.Integrations.GitHub@v0.0.1
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+      PRIVATE_LLM_API_KEY: ${{ secrets.PRIVATE_LLM_API_KEY }}
+    with:
+      task: custom
+      home-directory: crystal-ci-config/crystal-home
+      prompt-file: crystal-ci-config/tasks/issue.md
+      prompt-set: maintainer
+      prompt-attachments: on
+      prompt-attachment: |
+        incident-policy
+        repository-conventions
+      plugins: 'off'
+      skills: 'on'
+      external-tools: 'on'
+      mode: plan
+      crystal-version: v0.0.1
+      integration-version: v0.0.1
+```
+
+`prompt-file` and `prompt` are mutually exclusive. The file is read as trusted workflow instructions and is limited to 1 MiB. `prompt-attachment` is newline-separated and forces named attachments in addition to enabled attachments. The integration guard is always loaded, so `prompt-attachments: off` is rejected. Preset task modes cannot be changed: PR and Issue checks stay in Plan mode, while label classification stays in Work mode. `mode` applies only to `custom`.
+
+The overlay is deliberately strict. Symbolic links are rejected; unknown top-level files and directories are rejected; `credentials.json`, sessions, and binaries cannot be installed; and an extension file cannot silently overwrite a packaged asset. Keep plugins and external tools in a trusted, versioned source because they execute inside the runner process. They are not an operating-system sandbox.
 
 ### Configuration
 
@@ -213,6 +264,15 @@ Action inputs override the same effective settings where applicable:
 | `tool-calls` | `128` | Maximum tool calls |
 | `bash-timeout` | `60` | Maximum foreground shell duration |
 | `prompt` | empty | Additional trusted maintainer instructions |
+| `prompt-file` | empty | Trusted file containing additional instructions; mutually exclusive with `prompt` |
+| `home-directory` | empty | Trusted local home overlay with native configuration and extensions |
+| `prompt-set` | `default` | Prompt set name from the trusted home overlay |
+| `prompt-attachments` | `on` | Enable packaged and trusted prompt attachments; the guard remains mandatory |
+| `prompt-attachment` | empty | Newline-separated attachment names to force-load |
+| `plugins` | `off` | Enable trusted plugins |
+| `skills` | `off` | Enable trusted skills |
+| `external-tools` | `on` | Enable packaged and trusted external tools |
+| `mode` | task default | `plan` or `work` for `custom` only |
 
 The execution-limit inputs are positive integers. They are passed as process-level limits and are not written into the native config object. `custom` requires a non-empty `prompt`; never interpolate issue, PR, or comment text into it.
 

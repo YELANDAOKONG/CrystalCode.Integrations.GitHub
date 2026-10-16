@@ -12,7 +12,9 @@ public sealed class RunConfiguration
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
 
     private RunConfiguration(JsonObject config, JsonObject providers, string profile, string prompt,
-        string duration, string modelCalls, string toolCalls, string bashTimeout)
+        string duration, string modelCalls, string toolCalls, string bashTimeout, string promptSet,
+        string promptAttachments, IReadOnlyList<string> promptAttachmentNames, string plugins,
+        string skills, string externalTools, string mode)
     {
         Config = config;
         Providers = providers;
@@ -22,6 +24,13 @@ public sealed class RunConfiguration
         ModelCalls = modelCalls;
         ToolCalls = toolCalls;
         BashTimeout = bashTimeout;
+        PromptSet = promptSet;
+        PromptAttachments = promptAttachments;
+        PromptAttachmentNames = promptAttachmentNames;
+        Plugins = plugins;
+        Skills = skills;
+        ExternalTools = externalTools;
+        Mode = mode;
     }
 
     public JsonObject Config { get; }
@@ -32,15 +41,24 @@ public sealed class RunConfiguration
     public string ModelCalls { get; }
     public string ToolCalls { get; }
     public string BashTimeout { get; }
+    public string PromptSet { get; }
+    public string PromptAttachments { get; }
+    public IReadOnlyList<string> PromptAttachmentNames { get; }
+    public string Plugins { get; }
+    public string Skills { get; }
+    public string ExternalTools { get; }
+    public string Mode { get; }
 
-    public static RunConfiguration Read(Func<string, string?> environment)
+    public static RunConfiguration Read(Func<string, string?> environment, string? trustedHome = null)
     {
         string Value(string name, string fallback = "") => environment(Prefix + name) is { Length: > 0 } value
             ? value : fallback;
 
-        var config = ParseObject(Value("CONFIG", "{}"), "config");
-        var providers = ParseObject(Value("PROVIDERS", "{}"), "providers");
-        if (config.ContainsKey("providers"))
+        var config = trustedHome is null ? new JsonObject() : ReadObjectFile(trustedHome, "config.json", "config");
+        var providers = trustedHome is null ? new JsonObject() : ReadObjectFile(trustedHome, "providers.json", "providers");
+        Merge(config, ParseObject(Value("CONFIG", "{}"), "config"));
+        Merge(providers, ParseObject(Value("PROVIDERS", "{}"), "providers"));
+        if (config.Any(pair => pair.Key.Equals("providers", StringComparison.OrdinalIgnoreCase)))
         {
             throw new InvalidOperationException("Use the providers input instead of config.providers.");
         }
@@ -79,10 +97,12 @@ public sealed class RunConfiguration
             throw new InvalidOperationException("Approval mode is invalid.");
         }
 
-        // The integration needs only its installed tools; repository extensions are not loaded.
-        config["externalTools"] = true;
-        config["skills"] = false;
-        config["plugins"] = false;
+        var externalTools = Choice(Value("EXTERNAL_TOOLS", "on"), "external-tools");
+        var skills = Choice(Value("SKILLS", "off"), "skills");
+        var plugins = Choice(Value("PLUGINS", "off"), "plugins");
+        config["externalTools"] = externalTools == "on";
+        config["skills"] = skills == "on";
+        config["plugins"] = plugins == "on";
         var profile = Value("TASK", "pull-request-check");
         var task = profile switch
         {
@@ -103,11 +123,43 @@ public sealed class RunConfiguration
             task += "\n\nAdditional instructions supplied by the workflow maintainer:\n" + prompt;
         }
 
+        var promptAttachments = Choice(Value("PROMPT_ATTACHMENTS", "on"), "prompt-attachments");
+        if (promptAttachments == "off")
+        {
+            throw new InvalidOperationException("prompt-attachments must remain on because the integration guard is required.");
+        }
+
+        var promptSet = Value("PROMPT_SET", "default");
+        if (!Regex.IsMatch(promptSet, "^[A-Za-z0-9_-]+$", RegexOptions.CultureInvariant))
+        {
+            throw new InvalidOperationException("Prompt set must be a simple name.");
+        }
+
+        var promptAttachmentNames = Value("PROMPT_ATTACHMENT")
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .ToArray();
+        if (promptAttachmentNames.Any(name => !Regex.IsMatch(name, "^[A-Za-z0-9_-]+$", RegexOptions.CultureInvariant)))
+        {
+            throw new InvalidOperationException("Prompt attachment names must be simple names.");
+        }
+
+        var mode = Value("MODE");
+        if (mode.Length > 0 && mode is not ("plan" or "work"))
+        {
+            throw new InvalidOperationException("Mode must be plan or work.");
+        }
+
+        if (profile != "custom" && mode.Length > 0)
+        {
+            throw new InvalidOperationException("Mode can only be set for custom tasks.");
+        }
+
         return new RunConfiguration(config, providers, profile, task,
             Positive(Value("DURATION", "600"), "duration"),
             Positive(Value("MODEL_CALLS", "32"), "model-calls"),
             Positive(Value("TOOL_CALLS", "128"), "tool-calls"),
-            Positive(Value("BASH_TIMEOUT", "60"), "bash-timeout"));
+            Positive(Value("BASH_TIMEOUT", "60"), "bash-timeout"), promptSet, promptAttachments,
+            promptAttachmentNames, plugins, skills, externalTools, mode);
     }
 
     public void WriteHome(string home)
@@ -158,10 +210,11 @@ public sealed class RunConfiguration
         {
             "run", "--home", home, "--workspace", workspace, "--workspace-trust", "off",
             "--duration", Duration, "--model-calls", ModelCalls, "--tool-calls", ToolCalls,
-            "--bash-timeout", BashTimeout, "--skills", "off", "--plugins", "off",
-            "--external-tools", "on", "--rules", "off", "--prompt-set", "default", "--prompt-attachments", "on",
+            "--bash-timeout", BashTimeout, "--skills", Skills, "--plugins", Plugins,
+            "--external-tools", ExternalTools, "--rules", "off", "--prompt-set", PromptSet,
+            "--prompt-attachments", PromptAttachments,
             "--prompt-attachment", "github-review-guard",
-            Profile is "pull-request-check" or "issue-check" ? "--plan" : "--work"
+            Mode.Length > 0 ? "--" + Mode : Profile is "pull-request-check" or "issue-check" ? "--plan" : "--work"
         })
         {
             start.ArgumentList.Add(argument);
@@ -177,6 +230,12 @@ public sealed class RunConfiguration
                 "issue-label" => "github-issue-label",
                 _ => throw new InvalidOperationException("Unknown task profile.")
             });
+        }
+
+        foreach (var attachment in PromptAttachmentNames)
+        {
+            start.ArgumentList.Add("--prompt-attachment");
+            start.ArgumentList.Add(attachment);
         }
 
         start.Environment["CRYSTAL_HOME"] = home;
@@ -215,6 +274,42 @@ public sealed class RunConfiguration
             // Parser diagnostics can echo secret-bearing input.
             throw new InvalidOperationException($"The {name} input contains invalid JSON.");
         }
+    }
+
+    private static JsonObject ReadObjectFile(string directory, string fileName, string name)
+    {
+        var path = Path.Combine(directory, fileName);
+        if (!File.Exists(path))
+        {
+            return new JsonObject();
+        }
+
+        return ParseObject(File.ReadAllText(path), name);
+    }
+
+    private static void Merge(JsonObject target, JsonObject overlay)
+    {
+        foreach (var (key, value) in overlay)
+        {
+            if (value is JsonObject overlayObject && target[key] is JsonObject targetObject)
+            {
+                Merge(targetObject, overlayObject);
+            }
+            else
+            {
+                target[key] = value?.DeepClone();
+            }
+        }
+    }
+
+    private static string Choice(string value, string name)
+    {
+        if (value is not ("on" or "off"))
+        {
+            throw new InvalidOperationException($"The {name} input must be on or off.");
+        }
+
+        return value;
     }
 
     private static void ValidateDuplicateKeys(JsonElement element)
