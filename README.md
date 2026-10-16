@@ -11,21 +11,78 @@ The repository includes a Linux x64 composite Action, a configuration/bootstrap 
 
 The existing command talks to the GitHub REST API for a workflow the caller supplies. It does not itself decide what a review, issue, or label means; that behavior belongs to the Crystal Code task and prompts. A caller that needs an endpoint this command does not name uses `request`.
 
-[GitHub Action](#github-action) · [Command](#command) · [Library](#library) · [Build from source](#build-from-source)
+[GitHub Action](#github-action) · [First deployment](#first-deployment) · [Provider and model](#provider-and-model) · [Configuration](#configuration) · [Security](#security) · [Command](#command) · [Library](#library) · [Build from source](#build-from-source)
 
 ## GitHub Action
 
-Copy a file from [workflow-templates](workflow-templates) into your repository's `.github/workflows/`. Set an Actions secret named `CRYSTAL_API_KEY` for the default DeepSeek provider, or pass provider-specific environment variables such as `OPENAI_API_KEY`. Supply `GITHUB_TOKEN` through `env`. There is no API key input and no generated credentials file.
+This integration is a download-based Linux x64 composite Action. The release used by the Action must contain both of these assets:
+
+```text
+CrystalCode-linux-x64.zip
+CrystalCode.Integrations.GitHub.Action-linux-x64.zip
+```
+
+The first asset comes from [CrystalCode](https://github.com/YELANDAOKONG/CrystalCode). The second comes from this repository. A command-only integration ZIP is not an Action package.
 
 The Action runs on `ubuntu-latest` (Linux x64). Pin the Action ref, `crystal-version`, and `integration-version` to compatible published releases in production. Both version inputs default to `latest`. A self-hosted runner also needs `bash`, `curl`, `unzip`, and the native dependencies of the self-contained .NET binaries.
 
+The Action does not checkout the target repository. It creates a temporary Crystal Code home and an empty workspace, reads GitHub data through the API, installs only the packaged GitHub tools and prompts, and removes the `CRYSTAL_GITHUB_*` input variables before starting Crystal Code.
+
+### First deployment
+
+1. Create a repository Secret at **Settings → Secrets and variables → Actions**.
+
+   For the default DeepSeek provider, create:
+
+   ```text
+   CRYSTAL_API_KEY=<your DeepSeek API key>
+   ```
+
+2. Create `.github/workflows/crystal-issue-check.yml` in the target repository.
+
+3. Copy the [Issue check template](workflow-templates/issue-check.yml), or use this pinned version:
+
+   ```yaml
+   name: Crystal Code issue check
+
+   on:
+     issues:
+       types: [opened, edited]
+
+   permissions:
+     contents: read
+     issues: read
+
+   jobs:
+     check:
+       runs-on: ubuntu-latest
+       timeout-minutes: 15
+       steps:
+         - uses: YELANDAOKONG/CrystalCode.Integrations.GitHub@v0.0.1
+           env:
+             GITHUB_TOKEN: ${{ github.token }}
+             CRYSTAL_API_KEY: ${{ secrets.CRYSTAL_API_KEY }}
+           with:
+             task: issue-check
+             crystal-version: v0.0.1
+             integration-version: v0.0.1
+   ```
+
+   Replace `v0.0.1` with a compatible published tag. The Action ref and `integration-version` should refer to this integration release; `crystal-version` should refer to the Crystal Code release.
+
+4. Open or edit an issue and inspect the workflow run under the repository's **Actions** tab. Checks print their assessment in the run log; they do not post an issue comment or PR review.
+
+The repository also includes ready-to-copy templates for [PR checks](workflow-templates/pull-request-check.yml), [Issue checks](workflow-templates/issue-check.yml), and [Issue label classification](workflow-templates/issue-label.yml).
+
 ```yaml
-- uses: YELANDAOKONG/CrystalCode.Integrations.GitHub@master
+- uses: YELANDAOKONG/CrystalCode.Integrations.GitHub@v0.0.1
   env:
     GITHUB_TOKEN: ${{ github.token }}
     CRYSTAL_API_KEY: ${{ secrets.CRYSTAL_API_KEY }}
   with:
     task: issue-check
+    crystal-version: v0.0.1
+    integration-version: v0.0.1
 ```
 
 | Task | Behavior | Suggested token permissions |
@@ -37,7 +94,46 @@ The Action runs on `ubuntu-latest` (Linux x64). Pin the Action ref, `crystal-ver
 
 Checks use Plan mode; label and custom tasks use Work mode. The default approval mode is `review`, which uses the session model unless `config.approvalModel` selects another. These approval rules and prompts are not an operating-system sandbox. A successful process exit means the agent turn completed, not that the reviewed code passed a deterministic quality gate. Reports are currently written to the run log, not posted as PR reviews or issue comments.
 
-The bootstrap uses a fresh temporary home and empty workspace. It loads the packaged GitHub tools and matching prompt attachments; target repository tools, skills, plugins, rule files, and prompt overrides are not loaded. Tasks obtain repository data through the GitHub API, without checking out or executing contributor code. The PR template skips fork PRs because they do not receive model API secrets. It does not use `pull_request_target`.
+The PR template skips draft PRs and PRs from forks because fork workflows do not receive model API secrets. It does not use `pull_request_target`. Do not add a checkout step: the integration intentionally does not execute contributor code.
+
+### Provider and model
+
+The default is `deepseek` with model `deepseek-flash`. For another provider, set `provider`, `model`, and `providers` together. The provider name is an identifier; the model id must be listed under that provider.
+
+For an OpenAI-compatible endpoint:
+
+```yaml
+steps:
+  - uses: YELANDAOKONG/CrystalCode.Integrations.GitHub@v0.0.1
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+      PRIVATE_LLM_API_KEY: ${{ secrets.PRIVATE_LLM_API_KEY }}
+    with:
+      task: issue-check
+      provider: private-gateway
+      model: internal-reasoning-model
+      providers: |
+        {
+          "private-gateway": {
+            "protocol": "openai",
+            "baseUri": "https://llm.example.com/v1/",
+            "apiKeyEnvironment": "PRIVATE_LLM_API_KEY",
+            "models": {
+              "internal-reasoning-model": {
+                "contextWindow": 200000,
+                "thinking": true,
+                "thinkingEfforts": ["low", "medium", "high"]
+              }
+            }
+          }
+        }
+      crystal-version: v0.0.1
+      integration-version: v0.0.1
+```
+
+Crystal Code supports the provider protocols available in its release, including DeepSeek, OpenAI-compatible Chat Completions, OpenAI Responses, Anthropic Messages, Gemini, and Ollama. The integration does not fetch model metadata. Add every selectable model to the provider definition, including its positive `contextWindow`.
+
+The API key must stay in a GitHub Secret and an environment variable. Do not put a literal key in YAML, `config`, or `providers`.
 
 Use native JSON for the wider configuration surface:
 
@@ -52,7 +148,128 @@ with:
     {"gateway":{"protocol":"openai","baseUri":"https://example.com/v1/","apiKeyEnvironment":"GATEWAY_API_KEY","models":{"example-model":{"contextWindow":200000}}}}
 ```
 
-Pass `GATEWAY_API_KEY` through the step's `env`. `config` is the native `config.json` object and `providers` is the native `providers.json` object. Explicit `provider`, `model`, and `approval` inputs override the corresponding config fields. Other JSON fields are preserved and validated by Crystal Code at startup; the integration validates JSON structure and rejects inline API keys, allowing only `{env:NAME}` references. Legacy `config.providers` is rejected. Skills and plugins are always off and external tools are on for this integration.
+Pass `GATEWAY_API_KEY` through the step's `env`. `config` is the native `config.json` object and `providers` is the native `providers.json` object. Explicit `provider`, `model`, and `approval` inputs override the corresponding config fields. Other JSON fields are preserved and validated by Crystal Code at startup; the integration validates JSON structure and rejects inline API keys, allowing only `{env:NAME}` references. Legacy `config.providers` is rejected. Skills, plugins, workspace trust, and repository rules are disabled for this integration; the packaged external tools are enabled.
+
+### Configuration
+
+The Action writes two native Crystal Code files in its temporary home:
+
+```text
+config     → config.json
+providers  → providers.json
+```
+
+Use `config` for host behavior and `providers` for provider/model definitions. Common `config` fields include:
+
+| Field | Purpose |
+| :--- | :--- |
+| `provider` | Active provider name |
+| `model` | Active model id |
+| `approval` | `default`, `edit`, `review`, `audit`, or `full` |
+| `thinkingEffort` | `default`, `off`, `minimal`, `low`, `medium`, `high`, `maximum`, or a provider token |
+| `approvalModel` | Optional reviewer object with `enabled`, `provider`, `model`, and `thinkingEffort` |
+| `compactionModel` | Optional summarizer object with `enabled`, `provider`, `model`, and `thinkingEffort` |
+| `microCompaction` | Optional object controlling removal of old tool results |
+| `retry` | Retry policy, including `maximumRetries`, delays, backoff, and jitter |
+| `approvalRetry` | Retry policy for review/audit approval calls |
+| `verboseThinking` | Whether thinking panels are shown in interactive output; it does not change model reasoning |
+
+For example:
+
+```yaml
+with:
+  task: issue-check
+  config: |
+    {
+      "approval": "review",
+      "thinkingEffort": "high",
+      "microCompaction": {
+        "enabled": true,
+        "protectTurns": 2,
+        "protectTokens": 40000,
+        "minimumTokens": 20000
+      },
+      "retry": {
+        "enabled": true,
+        "maximumRetries": 3,
+        "initialDelaySeconds": 2,
+        "backoffFactor": 2,
+        "jitterFactor": 0.25,
+        "maximumDelaySeconds": 30
+      }
+    }
+```
+
+Action inputs override the same effective settings where applicable:
+
+| Input | Default | Meaning |
+| :--- | :--- | :--- |
+| `task` | `pull-request-check` | `pull-request-check`, `issue-check`, `issue-label`, or `custom` |
+| `provider` | `deepseek` | Active provider override |
+| `model` | `deepseek-flash` for DeepSeek | Active model override |
+| `approval` | `review` | Approval mode override |
+| `duration` | `600` | Maximum turn duration in seconds |
+| `model-calls` | `32` | Maximum model calls |
+| `tool-calls` | `128` | Maximum tool calls |
+| `bash-timeout` | `60` | Maximum foreground shell duration |
+| `prompt` | empty | Additional trusted maintainer instructions |
+
+The execution-limit inputs are positive integers. They are passed as process-level limits and are not written into the native config object. `custom` requires a non-empty `prompt`; never interpolate issue, PR, or comment text into it.
+
+### Keep model configuration private
+
+Workflow files are repository content. If provider URLs, model ids, routing policy, or other model settings are confidential, store the JSON as repository or environment Secrets:
+
+```text
+CRYSTAL_CONFIG_JSON
+CRYSTAL_PROVIDERS_JSON
+PRIVATE_LLM_API_KEY
+```
+
+Then reference them without printing them:
+
+```yaml
+steps:
+  - uses: YELANDAOKONG/CrystalCode.Integrations.GitHub@v0.0.1
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+      PRIVATE_LLM_API_KEY: ${{ secrets.PRIVATE_LLM_API_KEY }}
+    with:
+      task: issue-check
+      config: ${{ secrets.CRYSTAL_CONFIG_JSON }}
+      providers: ${{ secrets.CRYSTAL_PROVIDERS_JSON }}
+      crystal-version: v0.0.1
+      integration-version: v0.0.1
+```
+
+The secret JSON can contain the active provider and model:
+
+```json
+{
+  "provider": "private-gateway",
+  "model": "internal-reasoning-model",
+  "retry": { "maximumRetries": 2 }
+}
+```
+
+The provider Secret can refer to the separately injected key:
+
+```json
+{
+  "private-gateway": {
+    "protocol": "openai",
+    "baseUri": "https://llm.example.com/v1/",
+    "apiKeyEnvironment": "PRIVATE_LLM_API_KEY",
+    "models": {
+      "internal-reasoning-model": { "contextWindow": 200000 }
+    }
+  }
+}
+```
+
+The bootstrap rejects inline values in fields named `apiKey`. Do not use `echo`, shell tracing, debug actions, or third-party actions that could expose Secret values. GitHub does not provide repository Secrets to ordinary fork pull-request workflows, which is why the PR template skips fork PRs.
+
+### Permissions and task behavior
 
 Use `prompt` for additional trusted task instructions or classification criteria. Do not interpolate issue bodies, PR descriptions, or comments into that input; fetch them through tools as data. The packaged `github-review-guard` is loaded along with the selected task attachment. `custom` loads the guard without a business attachment. Prompts use the native `prompt-attachments/` format, not config fields. Future custom prompt packages can build on that format; arbitrary prompt directory installation is not exposed by this first Action.
 
