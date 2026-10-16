@@ -72,7 +72,7 @@ The Action does not checkout the target repository. It creates a temporary Cryst
 
 4. Open or edit an issue and inspect the workflow run under the repository's **Actions** tab. Checks print their assessment in the run log; they do not post an issue comment or PR review.
 
-The repository also includes ready-to-copy templates for [PR checks](workflow-templates/pull-request-check.yml), [Issue checks](workflow-templates/issue-check.yml), and [Issue label classification](workflow-templates/issue-label.yml).
+The repository also includes ready-to-copy templates for [PR checks](workflow-templates/pull-request-check.yml), [Issue checks](workflow-templates/issue-check.yml), [Issue label classification](workflow-templates/issue-label.yml), [Issue replies](workflow-templates/issue-reply.yml), and [PR replies](workflow-templates/pull-request-reply.yml).
 
 ```yaml
 - uses: YELANDAOKONG/CrystalCode.Integrations.GitHub@v0.0.1
@@ -90,9 +90,13 @@ The repository also includes ready-to-copy templates for [PR checks](workflow-te
 | `pull-request-check` (default) | Read the PR metadata and diff; print findings in the run log | `contents: read`, `pull-requests: read` |
 | `issue-check` | Read the issue and comments; print an assessment | `contents: read`, `issues: read` |
 | `issue-label` | Discover existing labels and add applicable missing labels | `contents: read`, `issues: write` |
+| `issue-reply` | Read the current Issue and publish one ordinary reply | `contents: read`, `issues: write` |
+| `pull-request-reply` | Read the current PR and publish one ordinary conversation reply | `contents: read`, `issues: write`, `pull-requests: read` |
 | `custom` | Run the required maintainer-supplied `prompt` in Work mode | Grant only the permissions needed by the task |
 
-Checks use Plan mode; label and custom tasks use Work mode. The default approval mode is `review`, which uses the session model unless `config.approvalModel` selects another. These approval rules and prompts are not an operating-system sandbox. A successful process exit means the agent turn completed, not that the reviewed code passed a deterministic quality gate. Reports are currently written to the run log, not posted as PR reviews or issue comments.
+Checks use Plan mode; label, reply, and custom tasks use Work mode. The default approval mode is `review`, which uses the session model unless `config.approvalModel` selects another. These approval rules and prompts are not an operating-system sandbox. A successful process exit means the agent turn completed, not that the reviewed code passed a deterministic quality gate. Check tasks write reports to the run log. Reply tasks publish one ordinary conversation comment on the current Issue or PR when the prompt authorizes and the evidence supports a response.
+
+The reply templates are event-driven: Issue replies run for new or edited Issues, and PR replies run for opened, synchronized, reopened, or ready-for-review PRs. They skip draft and fork PRs. Repeated PR synchronization events can produce new replies when the current diff has changed; the trusted reply prompt asks the agent to avoid an equivalent recent duplicate. Review comments, approvals, and requests for changes are not submitted by these tasks.
 
 The PR template skips draft PRs and PRs from forks because fork workflows do not receive model API secrets. It does not use `pull_request_target`. Do not add a checkout step for the target repository: the integration intentionally does not execute contributor code.
 

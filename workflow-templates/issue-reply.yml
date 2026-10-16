@@ -1,0 +1,18 @@
+name: Crystal Code issue reply
+on:
+  issues:
+    types: [opened, edited]
+permissions:
+  contents: read
+  issues: write
+jobs:
+  reply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: YELANDAOKONG/CrystalCode.Integrations.GitHub@master
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          CRYSTAL_API_KEY: ${{ secrets.CRYSTAL_API_KEY }}
+        with:
+          task: issue-reply

@@ -109,8 +109,10 @@ public sealed class RunConfiguration
             "pull-request-check" => "Inspect the current GitHub pull request. Read the event and PR diff with the GitHub tools. Report actionable defects with file and line evidence. Output the report only; do not publish or change GitHub state.",
             "issue-check" => "Inspect the current GitHub issue using the event and GitHub tools. Explain missing information, reproducibility, and useful next steps. Output the report only; do not publish or change GitHub state.",
             "issue-label" => "Classify the current GitHub issue using the event and GitHub tools. List existing repository labels with a GET request first. Add only applicable existing labels using github_issue_labels. Do not remove labels, create labels, comment, or change any other GitHub state.",
+            "issue-reply" => "Read the current GitHub issue and relevant comments. Write one concise, evidence-based reply to the current issue with github_issue_comment. Reply only to the current issue, do not duplicate an existing response, and do not change labels, assignments, status, repository settings, or any other GitHub state.",
+            "pull-request-reply" => "Read the current GitHub pull request, diff, and relevant comments. Write one concise, evidence-based conversation reply to the current pull request with github_issue_comment. Reply only to the current pull request, do not duplicate an existing response, and do not approve, request changes, modify code, or change any other GitHub state.",
             "custom" => "Perform only the task specified in the workflow instructions below.",
-            _ => throw new InvalidOperationException("Task must be pull-request-check, issue-check, issue-label, or custom.")
+            _ => throw new InvalidOperationException("Task must be pull-request-check, issue-check, issue-label, issue-reply, pull-request-reply, or custom.")
         };
         var prompt = Value("PROMPT");
         if (profile == "custom" && string.IsNullOrWhiteSpace(prompt))
@@ -180,7 +182,7 @@ public sealed class RunConfiguration
         {
             using var document = JsonDocument.Parse(json);
             var root = document.RootElement;
-            var member = Profile == "pull-request-check" ? "pull_request" : "issue";
+            var member = Profile is "pull-request-check" or "pull-request-reply" ? "pull_request" : "issue";
             if (root.ValueKind != JsonValueKind.Object
                 || !root.TryGetProperty(member, out var target)
                 || target.ValueKind != JsonValueKind.Object
@@ -228,6 +230,8 @@ public sealed class RunConfiguration
                 "pull-request-check" => "github-pr-check",
                 "issue-check" => "github-issue-check",
                 "issue-label" => "github-issue-label",
+                "issue-reply" => "github-issue-reply",
+                "pull-request-reply" => "github-pull-request-reply",
                 _ => throw new InvalidOperationException("Unknown task profile.")
             });
         }

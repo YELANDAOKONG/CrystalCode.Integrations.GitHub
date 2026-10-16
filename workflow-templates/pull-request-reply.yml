@@ -1,0 +1,20 @@
+name: Crystal Code pull request reply
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+permissions:
+  contents: read
+  issues: write
+  pull-requests: read
+jobs:
+  reply:
+    if: github.event.pull_request.head.repo.full_name == github.repository && !github.event.pull_request.draft
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: YELANDAOKONG/CrystalCode.Integrations.GitHub@master
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          CRYSTAL_API_KEY: ${{ secrets.CRYSTAL_API_KEY }}
+        with:
+          task: pull-request-reply
