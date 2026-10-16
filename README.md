@@ -152,7 +152,7 @@ with:
     {"gateway":{"protocol":"openai","baseUri":"https://example.com/v1/","apiKeyEnvironment":"GATEWAY_API_KEY","models":{"example-model":{"contextWindow":200000}}}}
 ```
 
-Pass `GATEWAY_API_KEY` through the step's `env`. `config` is the native `config.json` object and `providers` is the native `providers.json` object. Explicit `provider`, `model`, and `approval` inputs override the corresponding config fields. Other JSON fields are preserved and validated by Crystal Code at startup; the integration validates JSON structure and rejects inline API keys, allowing only `{env:NAME}` references. Legacy `config.providers` is rejected. Skills, plugins, workspace trust, and repository rules are disabled by default; they can be enabled only for a trusted home overlay.
+Pass `GATEWAY_API_KEY` through the step's `env`. `config` is the native `config.json` object and `providers` is the native `providers.json` object. Explicit `provider`, `model`, and `approval` inputs override the corresponding config fields. Other JSON fields are preserved and validated by Crystal Code at startup; the integration validates JSON structure and rejects inline API keys, allowing only `{env:NAME}` references. Legacy `config.providers` is rejected. Skills and plugins are disabled by default and are read only from the temporary home, so they are useful together with a `home-directory` overlay. Workspace trust and repository rules are always disabled by this integration and cannot be turned on with an input.
 
 ### Trusted home overlay and extensions
 
@@ -203,7 +203,7 @@ steps:
 
 `prompt-file` and `prompt` are mutually exclusive. The file is read as trusted workflow instructions and is limited to 1 MiB. `prompt-attachment` is newline-separated and forces named attachments in addition to enabled attachments. The integration guard is always loaded, so `prompt-attachments: off` is rejected. Preset task modes cannot be changed: PR and Issue checks stay in Plan mode, while label classification stays in Work mode. `mode` applies only to `custom`.
 
-The overlay is deliberately strict. Symbolic links are rejected; unknown top-level files and directories are rejected; `credentials.json`, sessions, and binaries cannot be installed; and an extension file cannot silently overwrite a packaged asset. Keep plugins and external tools in a trusted, versioned source because they execute inside the runner process. They are not an operating-system sandbox.
+The overlay is deliberately strict. Symbolic links are rejected anywhere in the tree. Top-level entries are limited to `config.json`, `providers.json`, `prompt-sets/`, `prompt-attachments/`, `plugins/`, `skills/`, and `tools/`; any other top-level file or directory is rejected. An overlay file whose path already exists in the packaged assets, such as `prompt-attachments/github-review-guard/plan.md` or `tools/GitHub/...`, is rejected instead of overwritten. Files inside the extension directories can be binaries, because plugins and external tools are assemblies loaded by the runner process. Keep them in a trusted, versioned source: these rules are not an operating-system sandbox.
 
 ### Configuration
 
