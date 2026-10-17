@@ -22,7 +22,7 @@ internal static class GitHubTool
     internal static ToolDefinition Define(string name, string description, string schema)
     {
         using var document = JsonDocument.Parse(schema);
-        return new ToolDefinition(name, document.RootElement, description);
+        return ToolDefinition.Json(name, document.RootElement, description);
     }
 
     internal static async ValueTask<ToolOutput> InvokeApiAsync(

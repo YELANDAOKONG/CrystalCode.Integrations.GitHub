@@ -16,7 +16,8 @@ public sealed class GitHubToolTests
         {
             Assert.False(string.IsNullOrWhiteSpace(tool.Definition.Name));
             Assert.False(string.IsNullOrWhiteSpace(tool.Definition.Description));
-            Assert.Equal(JsonValueKind.Object, tool.Definition.InputSchema.ValueKind);
+            var input = Assert.IsType<JsonToolInput>(tool.Definition.Input);
+            Assert.Equal(JsonValueKind.Object, input.Schema.ValueKind);
             Assert.True(names.Add(tool.Definition.Name));
         }
 
@@ -36,7 +37,7 @@ public sealed class GitHubToolTests
         try
         {
             var output = await new GitHubIssueGetTool().InvokeAsync(
-                new ToolCall("call-1", "github_issue_get", "{}"),
+                new ToolCall("call-1", "github_issue_get", "{}", ToolInputKind.Json),
                 CancellationToken.None);
 
             Assert.Equal(ToolResultStatus.Failure, output.Status);
@@ -56,7 +57,7 @@ public sealed class GitHubToolTests
         try
         {
             var output = await new GitHubIssueGetTool().InvokeAsync(
-                new ToolCall("call-1", "github_issue_get", """{"number":1}"""),
+                new ToolCall("call-1", "github_issue_get", """{"number":1}""", ToolInputKind.Json),
                 CancellationToken.None);
 
             Assert.Equal(ToolResultStatus.Failure, output.Status);
