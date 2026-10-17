@@ -22,6 +22,8 @@ public sealed class GitHubToolManifestTests
         Assert.Equal("work", tools.GetProperty("github_issue_comment").GetProperty("catalogs")[0].GetString());
         Assert.Equal("work", tools.GetProperty("github_issue_labels").GetProperty("catalogs")[0].GetString());
         Assert.Equal("output", tools.GetProperty("github_pull_diff").GetProperty("pathArguments")[0].GetString());
+        Assert.Equal(2, tools.GetProperty("github_repo_tree").GetProperty("catalogs").GetArrayLength());
+        Assert.Equal(2, tools.GetProperty("github_repo_file").GetProperty("catalogs").GetArrayLength());
         Assert.False(tools.TryGetProperty("github_issue_get", out _));
         Assert.False(tools.TryGetProperty("github_event_show", out _));
     }

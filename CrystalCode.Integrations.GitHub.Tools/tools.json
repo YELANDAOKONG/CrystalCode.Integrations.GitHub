@@ -6,6 +6,8 @@
     "github_issue_comment": { "catalogs": ["work"] },
     "github_issue_labels": { "catalogs": ["work"] },
     "github_pull_review": { "catalogs": ["work"] },
-    "github_pull_diff": { "pathArguments": ["output"] }
+    "github_pull_diff": { "pathArguments": ["output"] },
+    "github_repo_tree": { "catalogs": ["plan", "work"] },
+    "github_repo_file": { "catalogs": ["plan", "work"] }
   }
 }

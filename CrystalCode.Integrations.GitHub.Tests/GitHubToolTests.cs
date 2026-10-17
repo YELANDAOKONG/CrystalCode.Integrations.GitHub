@@ -21,9 +21,11 @@ public sealed class GitHubToolTests
             Assert.True(names.Add(tool.Definition.Name));
         }
 
-        Assert.Equal(9, names.Count);
+        Assert.Equal(11, names.Count);
         Assert.Contains("github_request", names);
         Assert.Contains("github_event_show", names);
+        Assert.Contains("github_repo_tree", names);
+        Assert.Contains("github_repo_file", names);
     }
 
     [Fact]
@@ -80,5 +82,7 @@ public sealed class GitHubToolTests
         yield return new GitHubPullDiffTool();
         yield return new GitHubPullReviewTool();
         yield return new GitHubEventShowTool();
+        yield return new GitHubRepoTreeTool();
+        yield return new GitHubRepoFileTool();
     }
 }

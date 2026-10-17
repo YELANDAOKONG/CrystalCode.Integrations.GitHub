@@ -56,6 +56,8 @@ inputs:
   bash:
     description: Enable Crystal Code shell tools, including background shell commands.
     default: 'on'
+  code-ref:
+    description: Branch, tag, or commit to inspect for Issue tasks. Defaults to the repository default branch; PR tasks always use the PR head commit.
   crystal-version:
     description: Crystal Code release tag, or latest. Pin a compatible release for reproducible runs.
     default: latest
@@ -89,6 +91,7 @@ runs:
         CRYSTAL_GITHUB_TOOL_CALLS: ${{ inputs.tool-calls }}
         CRYSTAL_GITHUB_BASH_TIMEOUT: ${{ inputs.bash-timeout }}
         CRYSTAL_GITHUB_BASH: ${{ inputs.bash }}
+        GITHUB_CODE_REF: ${{ inputs.code-ref }}
         CRYSTAL_GITHUB_VERSION: ${{ inputs.crystal-version }}
         CRYSTAL_GITHUB_INTEGRATION_VERSION: ${{ inputs.integration-version }}
         CRYSTAL_GITHUB_ACTION_PATH: ${{ github.action_path }}

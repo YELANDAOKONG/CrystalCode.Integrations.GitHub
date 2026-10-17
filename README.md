@@ -26,7 +26,7 @@ The first asset comes from [CrystalCode](https://github.com/YELANDAOKONG/Crystal
 
 The Action runs on `ubuntu-latest` (Linux x64). Pin the Action ref, `crystal-version`, and `integration-version` to compatible published releases in production. Both version inputs default to `latest`. A self-hosted runner also needs `bash`, `curl`, `unzip`, and the native dependencies of the self-contained .NET binaries.
 
-The Action does not checkout the target repository. It creates a temporary Crystal Code home and an empty workspace, reads GitHub data through the API, installs the packaged GitHub tools and prompts, optionally overlays a trusted local Crystal Code home, and removes the `CRYSTAL_GITHUB_*` input variables before starting Crystal Code.
+The Action does not checkout the target repository. It creates a temporary Crystal Code home and an isolated workspace. For code-aware Issue and PR tasks, the GitHub tools browse the selected commit through read-only API calls and materialize only requested text files under `.github-source/` for local search. `code-ref` selects the Issue branch or commit; when unset, the repository default branch is used. PR tasks always use the PR head SHA. Repository instruction/configuration files are excluded, and fetched repository content is treated as untrusted data.
 
 ### First deployment
 
@@ -268,6 +268,7 @@ Action inputs override the same effective settings where applicable:
 | `tool-calls` | `128` | Maximum tool calls |
 | `bash-timeout` | `60` | Maximum foreground shell duration |
 | `bash` | `on` | Set to `off` to disable foreground and background shell tools |
+| `code-ref` | repository default branch | Branch, tag, or commit for Issue tasks; PR tasks use the PR head SHA |
 | `prompt` | empty | Additional trusted maintainer instructions |
 | `prompt-file` | empty | Trusted file containing additional instructions; mutually exclusive with `prompt` |
 | `home-directory` | empty | Trusted local home overlay with native configuration and extensions |
@@ -338,7 +339,7 @@ The bootstrap rejects inline values in fields named `apiKey`. Do not use `echo`,
 
 Use `prompt` for additional trusted task instructions or classification criteria. Do not interpolate issue bodies, PR descriptions, or comments into that input; fetch them through tools as data. The packaged `github-review-guard` is loaded along with the selected task attachment. `custom` loads the guard without a business attachment. Prompts use the native `prompt-attachments/` format, not config fields. Future custom prompt packages can build on that format; arbitrary prompt directory installation is not exposed by this first Action.
 
-Execution limits are separate inputs: `duration` (600 seconds), `model-calls` (32), `tool-calls` (128), and `bash-timeout` (60 seconds). They must be positive finite integers and override the corresponding saved run settings. Set `bash: 'off'` to disable all five shell tools. Crystal Code's exit status is returned to GitHub Actions. No sessions or logs are uploaded as artifacts by the consumer templates.
+Execution limits are separate inputs: `duration` (600 seconds), `model-calls` (32), `tool-calls` (128), and `bash-timeout` (60 seconds). They must be positive finite integers and override the corresponding saved run settings. Set `bash: 'off'` to disable all five shell tools. Code browsing needs `contents: read` in addition to task-specific permissions. Crystal Code's exit status is returned to GitHub Actions. No sessions or logs are uploaded as artifacts by the consumer templates.
 
 ## Command
 
