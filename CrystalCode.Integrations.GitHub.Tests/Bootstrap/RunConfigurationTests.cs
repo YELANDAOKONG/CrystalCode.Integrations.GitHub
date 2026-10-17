@@ -51,6 +51,26 @@ public sealed class RunConfigurationTests
     public void Read_DoesNotGuessModelForCustomProvider() =>
         Assert.Throws<InvalidOperationException>(() => Read(new() { ["PROVIDER"] = "gateway" }));
 
+    [Fact]
+    public void CreateStartInfo_DisablesAllShellToolsWhenRequested()
+    {
+        var configuration = Read(new() { ["BASH"] = "off" });
+        var start = configuration.CreateStartInfo("CrystalCode", "home", "workspace");
+
+        Assert.Equal(5, start.ArgumentList.Count(argument => argument == "--disable-tool"));
+        Assert.Contains("bash", start.ArgumentList);
+        Assert.Contains("bash_start", start.ArgumentList);
+        Assert.Contains("bash_logs", start.ArgumentList);
+        Assert.Contains("bash_status", start.ArgumentList);
+        Assert.Contains("bash_stop", start.ArgumentList);
+    }
+
+    [Theory]
+    [InlineData("yes")]
+    [InlineData("true")]
+    public void Read_RejectsInvalidBashChoice(string value) =>
+        Assert.Throws<InvalidOperationException>(() => Read(new() { ["BASH"] = value }));
+
     [Theory]
     [InlineData("0")]
     [InlineData("-1")]
@@ -146,6 +166,14 @@ public sealed class RunConfigurationTests
     [InlineData("pull-request-reply", "{\"pull_request\":{\"number\":12}}")]
     public void ValidateEvent_AcceptsMatchingTarget(string task, string json) =>
         Read(new() { ["TASK"] = task }).ValidateEvent(json);
+
+    [Fact]
+    public void ValidateEvent_AcceptsPullRequestCommentEventForReply()
+    {
+        const string payload = """{"issue":{"number":12,"pull_request":{"url":"https://api.github.com/repos/org/repo/pulls/12"}}}""";
+
+        Read(new() { ["TASK"] = "pull-request-reply" }).ValidateEvent(payload);
+    }
 
     [Fact]
     public void WriteHome_PreservesJsonAndDoesNotCreateCredentialFile()

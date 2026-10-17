@@ -53,6 +53,9 @@ inputs:
   bash-timeout:
     description: Maximum foreground shell command duration in seconds.
     default: '60'
+  bash:
+    description: Enable Crystal Code shell tools, including background shell commands.
+    default: 'on'
   crystal-version:
     description: Crystal Code release tag, or latest. Pin a compatible release for reproducible runs.
     default: latest
@@ -85,6 +88,7 @@ runs:
         CRYSTAL_GITHUB_MODEL_CALLS: ${{ inputs.model-calls }}
         CRYSTAL_GITHUB_TOOL_CALLS: ${{ inputs.tool-calls }}
         CRYSTAL_GITHUB_BASH_TIMEOUT: ${{ inputs.bash-timeout }}
+        CRYSTAL_GITHUB_BASH: ${{ inputs.bash }}
         CRYSTAL_GITHUB_VERSION: ${{ inputs.crystal-version }}
         CRYSTAL_GITHUB_INTEGRATION_VERSION: ${{ inputs.integration-version }}
         CRYSTAL_GITHUB_ACTION_PATH: ${{ github.action_path }}

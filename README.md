@@ -72,7 +72,7 @@ The Action does not checkout the target repository. It creates a temporary Cryst
 
 4. Open or edit an issue and inspect the workflow run under the repository's **Actions** tab. Checks print their assessment in the run log; they do not post an issue comment or PR review.
 
-The repository also includes ready-to-copy templates for [PR checks](workflow-templates/pull-request-check.yml), [Issue checks](workflow-templates/issue-check.yml), [Issue label classification](workflow-templates/issue-label.yml), [Issue replies](workflow-templates/issue-reply.yml), and [PR replies](workflow-templates/pull-request-reply.yml).
+The repository also includes ready-to-copy templates for [PR checks](workflow-templates/pull-request-check.yml), [Issue checks](workflow-templates/issue-check.yml), [Issue label classification](workflow-templates/issue-label.yml), [Issue replies](workflow-templates/issue-reply.yml), [PR replies](workflow-templates/pull-request-reply.yml), and [manual `/oc` or `/opencode` comment commands](workflow-templates/comment-command.yml). The command template accepts comments from repository owners, members, and collaborators on Issues and PRs; copy it into `.github/workflows/` to enable it.
 
 ```yaml
 - uses: YELANDAOKONG/CrystalCode.Integrations.GitHub@v0.0.1
@@ -267,6 +267,7 @@ Action inputs override the same effective settings where applicable:
 | `model-calls` | `32` | Maximum model calls |
 | `tool-calls` | `128` | Maximum tool calls |
 | `bash-timeout` | `60` | Maximum foreground shell duration |
+| `bash` | `on` | Set to `off` to disable foreground and background shell tools |
 | `prompt` | empty | Additional trusted maintainer instructions |
 | `prompt-file` | empty | Trusted file containing additional instructions; mutually exclusive with `prompt` |
 | `home-directory` | empty | Trusted local home overlay with native configuration and extensions |
@@ -337,7 +338,7 @@ The bootstrap rejects inline values in fields named `apiKey`. Do not use `echo`,
 
 Use `prompt` for additional trusted task instructions or classification criteria. Do not interpolate issue bodies, PR descriptions, or comments into that input; fetch them through tools as data. The packaged `github-review-guard` is loaded along with the selected task attachment. `custom` loads the guard without a business attachment. Prompts use the native `prompt-attachments/` format, not config fields. Future custom prompt packages can build on that format; arbitrary prompt directory installation is not exposed by this first Action.
 
-Execution limits are separate inputs: `duration` (600 seconds), `model-calls` (32), `tool-calls` (128), and `bash-timeout` (60 seconds). They must be positive finite integers and override the corresponding saved run settings. Crystal Code's exit status is returned to GitHub Actions. No sessions or logs are uploaded as artifacts by the consumer templates.
+Execution limits are separate inputs: `duration` (600 seconds), `model-calls` (32), `tool-calls` (128), and `bash-timeout` (60 seconds). They must be positive finite integers and override the corresponding saved run settings. Set `bash: 'off'` to disable all five shell tools. Crystal Code's exit status is returned to GitHub Actions. No sessions or logs are uploaded as artifacts by the consumer templates.
 
 ## Command
 

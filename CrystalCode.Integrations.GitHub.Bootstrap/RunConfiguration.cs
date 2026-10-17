@@ -14,7 +14,7 @@ public sealed class RunConfiguration
     private RunConfiguration(JsonObject config, JsonObject providers, string profile, string prompt,
         string duration, string modelCalls, string toolCalls, string bashTimeout, string promptSet,
         string promptAttachments, IReadOnlyList<string> promptAttachmentNames, string plugins,
-        string skills, string externalTools, string mode)
+        string skills, string externalTools, string mode, string bash)
     {
         Config = config;
         Providers = providers;
@@ -31,6 +31,7 @@ public sealed class RunConfiguration
         Skills = skills;
         ExternalTools = externalTools;
         Mode = mode;
+        Bash = bash;
     }
 
     public JsonObject Config { get; }
@@ -48,6 +49,7 @@ public sealed class RunConfiguration
     public string Skills { get; }
     public string ExternalTools { get; }
     public string Mode { get; }
+    public string Bash { get; }
 
     public static RunConfiguration Read(Func<string, string?> environment, string? trustedHome = null)
     {
@@ -98,6 +100,7 @@ public sealed class RunConfiguration
         }
 
         var externalTools = Choice(Value("EXTERNAL_TOOLS", "on"), "external-tools");
+        var bash = Choice(Value("BASH", "on"), "bash");
         var skills = Choice(Value("SKILLS", "off"), "skills");
         var plugins = Choice(Value("PLUGINS", "off"), "plugins");
         config["externalTools"] = externalTools == "on";
@@ -161,7 +164,7 @@ public sealed class RunConfiguration
             Positive(Value("MODEL_CALLS", "32"), "model-calls"),
             Positive(Value("TOOL_CALLS", "128"), "tool-calls"),
             Positive(Value("BASH_TIMEOUT", "60"), "bash-timeout"), promptSet, promptAttachments,
-            promptAttachmentNames, plugins, skills, externalTools, mode);
+            promptAttachmentNames, plugins, skills, externalTools, mode, bash);
     }
 
     public void WriteHome(string home)
@@ -182,9 +185,23 @@ public sealed class RunConfiguration
         {
             using var document = JsonDocument.Parse(json);
             var root = document.RootElement;
-            var member = Profile is "pull-request-check" or "pull-request-reply" ? "pull_request" : "issue";
-            if (root.ValueKind != JsonValueKind.Object
-                || !root.TryGetProperty(member, out var target)
+            if (root.ValueKind != JsonValueKind.Object)
+            {
+                throw new InvalidOperationException("The GitHub event does not contain a target matching the selected task.");
+            }
+
+            var pullRequestProfile = Profile is "pull-request-check" or "pull-request-reply";
+            var member = pullRequestProfile ? "pull_request" : "issue";
+            var hasTarget = root.TryGetProperty(member, out var target);
+            if (!hasTarget && Profile == "pull-request-reply"
+                && root.TryGetProperty("issue", out target)
+                && target.ValueKind == JsonValueKind.Object
+                && target.TryGetProperty("pull_request", out _))
+            {
+                hasTarget = true;
+            }
+
+            if (!hasTarget
                 || target.ValueKind != JsonValueKind.Object
                 || !target.TryGetProperty("number", out var number)
                 || number.ValueKind != JsonValueKind.Number
@@ -220,6 +237,15 @@ public sealed class RunConfiguration
         })
         {
             start.ArgumentList.Add(argument);
+        }
+
+        if (Bash == "off")
+        {
+            foreach (var tool in new[] { "bash", "bash_start", "bash_logs", "bash_status", "bash_stop" })
+            {
+                start.ArgumentList.Add("--disable-tool");
+                start.ArgumentList.Add(tool);
+            }
         }
 
         if (Profile != "custom")
