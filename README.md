@@ -72,7 +72,7 @@ The Action does not checkout the target repository. It creates a temporary Cryst
 
 4. Open or edit an issue and inspect the workflow run under the repository's **Actions** tab. Checks print their assessment in the run log; they do not post an issue comment or PR review.
 
-The repository also includes ready-to-copy templates for [PR checks](workflow-templates/pull-request-check.yml), [Issue checks](workflow-templates/issue-check.yml), [Issue label classification](workflow-templates/issue-label.yml), [Issue replies](workflow-templates/issue-reply.yml), [PR replies](workflow-templates/pull-request-reply.yml), and [manual `/oc` or `/opencode` comment commands](workflow-templates/comment-command.yml). The command template accepts comments from repository owners, members, and collaborators on Issues and PRs; copy it into `.github/workflows/` to enable it.
+The repository also includes ready-to-copy templates for [PR checks](workflow-templates/pull-request-check.yml), [Issue checks](workflow-templates/issue-check.yml), [Issue label classification](workflow-templates/issue-label.yml), [Issue replies](workflow-templates/issue-reply.yml), [PR replies](workflow-templates/pull-request-reply.yml), and [manual `/cc`, `/code`, `/crystal`, or `/crystalcode` comment commands](workflow-templates/comment-command.yml). The command template accepts comments from repository owners, members, and collaborators on Issues and PRs; copy it into `.github/workflows/` to enable it.
 
 ```yaml
 - uses: YELANDAOKONG/CrystalCode.Integrations.GitHub@v0.0.1
