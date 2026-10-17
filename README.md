@@ -72,7 +72,7 @@ The Action does not checkout the target repository. It creates a temporary Cryst
 
 4. Open or edit an issue and inspect the workflow run under the repository's **Actions** tab. Checks print their assessment in the run log; they do not post an issue comment or PR review.
 
-The repository also includes ready-to-copy templates for [PR checks](workflow-templates/pull-request-check.yml), [Issue checks](workflow-templates/issue-check.yml), [Issue label classification](workflow-templates/issue-label.yml), [Issue replies](workflow-templates/issue-reply.yml), [PR replies](workflow-templates/pull-request-reply.yml), and [manual `/cc`, `/code`, `/crystal`, or `/crystalcode` comment commands](workflow-templates/comment-command.yml). The command template accepts comments from repository owners, members, and collaborators on Issues and PRs; copy it into `.github/workflows/` to enable it.
+The repository also includes ready-to-copy templates for [PR checks](workflow-templates/pull-request-check.yml), [Issue checks](workflow-templates/issue-check.yml), [Issue label classification](workflow-templates/issue-label.yml), [PR label classification](workflow-templates/pull-request-label.yml), [Issue replies](workflow-templates/issue-reply.yml), [PR replies](workflow-templates/pull-request-reply.yml), and [manual `/cc`, `/code`, `/crystal`, or `/crystalcode` comment commands](workflow-templates/comment-command.yml). The command template accepts comments from repository owners, members, and collaborators on Issues and PRs; copy it into `.github/workflows/` to enable it.
 
 ```yaml
 - uses: YELANDAOKONG/CrystalCode.Integrations.GitHub@v0.0.1
@@ -90,6 +90,7 @@ The repository also includes ready-to-copy templates for [PR checks](workflow-te
 | `pull-request-check` (default) | Read the PR metadata and diff; print findings in the run log | `contents: read`, `pull-requests: read` |
 | `issue-check` | Read the issue and comments; print an assessment | `contents: read`, `issues: read` |
 | `issue-label` | Discover existing labels and add applicable missing labels | `contents: read`, `issues: write` |
+| `pull-request-label` | Read the PR metadata and diff; discover existing labels and add applicable missing labels | `contents: read`, `issues: write`, `pull-requests: read` |
 | `issue-reply` | Read the current Issue and publish one ordinary reply | `contents: read`, `issues: write` |
 | `pull-request-reply` | Read the current PR and publish one ordinary conversation reply | `contents: read`, `issues: write`, `pull-requests: read` |
 | `custom` | Run the required maintainer-supplied `prompt` in Work mode | Grant only the permissions needed by the task |
@@ -97,6 +98,8 @@ The repository also includes ready-to-copy templates for [PR checks](workflow-te
 Checks use Plan mode; label, reply, and custom tasks use Work mode. The default approval mode is `review`, which uses the session model unless `config.approvalModel` selects another. These approval rules and prompts are not an operating-system sandbox. A successful process exit means the agent turn completed, not that the reviewed code passed a deterministic quality gate. Check tasks write reports to the run log. Reply tasks publish one ordinary conversation comment on the current Issue or PR when the prompt authorizes and the evidence supports a response.
 
 The reply templates are event-driven: Issue replies run for new or edited Issues, and PR replies run for opened, synchronized, reopened, or ready-for-review PRs. They skip draft and fork PRs. Repeated PR synchronization events can produce new replies when the current diff has changed; the trusted reply prompt asks the agent to avoid an equivalent recent duplicate. Review comments, approvals, and requests for changes are not submitted by these tasks.
+
+The PR label template runs for opened, edited, reopened, ready-for-review, and synchronized PRs, skips draft and fork PRs, and adds only missing existing labels. It never removes labels.
 
 The PR template skips draft PRs and PRs from forks because fork workflows do not receive model API secrets. It does not use `pull_request_target`. Do not add a checkout step for the target repository: the integration intentionally does not execute contributor code.
 
@@ -259,7 +262,7 @@ Action inputs override the same effective settings where applicable:
 
 | Input | Default | Meaning |
 | :--- | :--- | :--- |
-| `task` | `pull-request-check` | `pull-request-check`, `issue-check`, `issue-label`, or `custom` |
+| `task` | `pull-request-check` | `pull-request-check`, `issue-check`, `issue-label`, `pull-request-label`, `issue-reply`, `pull-request-reply`, or `custom` |
 | `provider` | `deepseek` | Active provider override |
 | `model` | `deepseek-flash` for DeepSeek | Active model override |
 | `approval` | `review` | Approval mode override |

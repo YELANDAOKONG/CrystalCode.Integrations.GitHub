@@ -138,6 +138,18 @@ class BootstrapSmokeTests(unittest.TestCase):
         self.assertIn("--work", record["arguments"])
         self.assertIn("github-issue-label", record["arguments"])
 
+    def test_pull_request_label_profile_uses_work_catalog(self):
+        event = self.root / "pull-request-event.json"
+        event.write_text(json.dumps({"pull_request": {"number": 12}}))
+        self.environment["GITHUB_EVENT_NAME"] = "pull_request"
+        self.environment["GITHUB_EVENT_PATH"] = str(event)
+        self.environment["CRYSTAL_GITHUB_TASK"] = "pull-request-label"
+        result = self.run_installer()
+        self.assertEqual(0, result.returncode, result.stderr)
+        record = json.loads((self.root / "record.json").read_text())
+        self.assertIn("--work", record["arguments"])
+        self.assertIn("github-pull-request-label", record["arguments"])
+
     def test_trusted_home_overlay_and_prompt_file(self):
         trusted = self.root / "trusted-home"
         (trusted / "prompt-attachments/trusted-policy").mkdir(parents=True)

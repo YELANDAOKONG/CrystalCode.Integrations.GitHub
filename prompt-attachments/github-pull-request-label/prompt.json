@@ -1,0 +1,5 @@
+{
+  "name": "GitHub Pull Request Label Classification",
+  "description": "Add applicable existing labels to the current pull request without replacing its labels.",
+  "enabled": false
+}

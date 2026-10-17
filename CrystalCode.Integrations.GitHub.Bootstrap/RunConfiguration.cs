@@ -112,10 +112,11 @@ public sealed class RunConfiguration
             "pull-request-check" => "Inspect the current GitHub pull request. Read the event and PR diff with the GitHub tools. Report actionable defects with file and line evidence. Output the report only; do not publish or change GitHub state.",
             "issue-check" => "Inspect the current GitHub issue using the event and GitHub tools. Explain missing information, reproducibility, and useful next steps. Output the report only; do not publish or change GitHub state.",
             "issue-label" => "Classify the current GitHub issue using the event and GitHub tools. List existing repository labels with a GET request first. Add only applicable existing labels using github_issue_labels. Do not remove labels, create labels, comment, or change any other GitHub state.",
+            "pull-request-label" => "Classify the current GitHub pull request using the event, pull request metadata, diff, and GitHub tools. List existing repository labels with a GET request first. Add only applicable existing labels using github_issue_labels. Do not remove labels, create labels, comment, review, or change any other GitHub state.",
             "issue-reply" => "Read the current GitHub issue and relevant comments. Write one concise, evidence-based reply to the current issue with github_issue_comment. Reply only to the current issue, do not duplicate an existing response, and do not change labels, assignments, status, repository settings, or any other GitHub state.",
             "pull-request-reply" => "Read the current GitHub pull request, diff, and relevant comments. Write one concise, evidence-based conversation reply to the current pull request with github_issue_comment. Reply only to the current pull request, do not duplicate an existing response, and do not approve, request changes, modify code, or change any other GitHub state.",
             "custom" => "Perform only the task specified in the workflow instructions below.",
-            _ => throw new InvalidOperationException("Task must be pull-request-check, issue-check, issue-label, issue-reply, pull-request-reply, or custom.")
+            _ => throw new InvalidOperationException("Task must be pull-request-check, issue-check, issue-label, pull-request-label, issue-reply, pull-request-reply, or custom.")
         };
         var prompt = Value("PROMPT");
         if (profile == "custom" && string.IsNullOrWhiteSpace(prompt))
@@ -190,7 +191,7 @@ public sealed class RunConfiguration
                 throw new InvalidOperationException("The GitHub event does not contain a target matching the selected task.");
             }
 
-            var pullRequestProfile = Profile is "pull-request-check" or "pull-request-reply";
+            var pullRequestProfile = Profile is "pull-request-check" or "pull-request-reply" or "pull-request-label";
             var member = pullRequestProfile ? "pull_request" : "issue";
             var hasTarget = root.TryGetProperty(member, out var target);
             if (!hasTarget && Profile == "pull-request-reply"
@@ -256,6 +257,7 @@ public sealed class RunConfiguration
                 "pull-request-check" => "github-pr-check",
                 "issue-check" => "github-issue-check",
                 "issue-label" => "github-issue-label",
+                "pull-request-label" => "github-pull-request-label",
                 "issue-reply" => "github-issue-reply",
                 "pull-request-reply" => "github-pull-request-reply",
                 _ => throw new InvalidOperationException("Unknown task profile.")

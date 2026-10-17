@@ -83,6 +83,7 @@ public sealed class RunConfigurationTests
     [InlineData("pull-request-check", "--plan", "github-pr-check")]
     [InlineData("issue-check", "--plan", "github-issue-check")]
     [InlineData("issue-label", "--work", "github-issue-label")]
+    [InlineData("pull-request-label", "--work", "github-pull-request-label")]
     [InlineData("issue-reply", "--work", "github-issue-reply")]
     [InlineData("pull-request-reply", "--work", "github-pull-request-reply")]
     public void CreateStartInfo_SelectsCatalogAndAttachments(string task, string mode, string attachment)
@@ -155,6 +156,7 @@ public sealed class RunConfigurationTests
     [InlineData("issue-label", "{\"inputs\":{\"issue\":12}}")]
     [InlineData("issue-check", "{\"issue\":{\"number\":0}}")]
     [InlineData("pull-request-check", "{\"issue\":{\"number\":12}}")]
+    [InlineData("pull-request-label", "{\"issue\":{\"number\":12}}")]
     [InlineData("pull-request-reply", "{\"issue\":{\"number\":12}}")]
     public void ValidateEvent_RefusesMismatchedTarget(string task, string json) =>
         Assert.Throws<InvalidOperationException>(() => Read(new() { ["TASK"] = task }).ValidateEvent(json));
@@ -163,6 +165,7 @@ public sealed class RunConfigurationTests
     [InlineData("issue-label", "{\"issue\":{\"number\":12}}")]
     [InlineData("issue-check", "{\"issue\":{\"number\":12}}")]
     [InlineData("pull-request-check", "{\"pull_request\":{\"number\":12}}")]
+    [InlineData("pull-request-label", "{\"pull_request\":{\"number\":12}}")]
     [InlineData("pull-request-reply", "{\"pull_request\":{\"number\":12}}")]
     public void ValidateEvent_AcceptsMatchingTarget(string task, string json) =>
         Read(new() { ["TASK"] = task }).ValidateEvent(json);

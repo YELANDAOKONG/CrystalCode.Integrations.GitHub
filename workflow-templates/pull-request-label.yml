@@ -1,0 +1,25 @@
+name: Crystal Code pull request label classification
+on:
+  pull_request:
+    types: [opened, edited, reopened, ready_for_review, synchronize]
+permissions:
+  contents: read
+  issues: write
+  pull-requests: read
+concurrency:
+  group: crystal-pr-label-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+jobs:
+  classify:
+    # Fork PRs do not receive model API secrets. Never switch to pull_request_target to execute PR code.
+    if: github.event.pull_request.head.repo.full_name == github.repository && !github.event.pull_request.draft
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      # Labels are applied through the issues API; no target checkout is needed.
+      - uses: YELANDAOKONG/CrystalCode.Integrations.GitHub@master
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          CRYSTAL_API_KEY: ${{ secrets.CRYSTAL_API_KEY }}
+        with:
+          task: pull-request-label

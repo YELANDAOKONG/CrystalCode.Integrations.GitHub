@@ -2,7 +2,7 @@ name: Crystal Code GitHub
 description: Run Crystal Code for pull request checks, issue checks, label classification, and custom GitHub tasks.
 inputs:
   task:
-    description: 'Task profile: pull-request-check, issue-check, issue-label, issue-reply, pull-request-reply, or custom'
+    description: 'Task profile: pull-request-check, issue-check, issue-label, pull-request-label, issue-reply, pull-request-reply, or custom'
     default: pull-request-check
   prompt:
     description: Additional trusted workflow instructions; required for custom tasks. Do not interpolate issue or PR text here.
